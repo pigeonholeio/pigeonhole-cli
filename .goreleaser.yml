@@ -68,6 +68,37 @@ brews:
       branch: main
       git:
         private_key: /Users/server/.ssh/id_rsa
+blobs:
+  # You can have multiple blob configs
+  - provider: s3
+    region: eu-west-2
+    bucket: releases.pigeono.io
+    # ids:
+    # - default
+    include_meta: true
+    directory: "foo/bar/{{.Version}}"
+
+
+
+# winget:
+#   - # Name of the recipe
+#     #
+#     # Default: the project name.
+#     # Templates: allowed.
+#     name: pigeonhole-cli
+
+#     # Publisher name.
+#     #
+#     # Templates: allowed.
+#     # Required
+#     publisher: PigeonHole
+
+#     # Your app's description.
+#     #
+#     # Templates: allowed.
+#     # Required
+#     # Default: inferred from global metadata.
+#     short_description: "Software to create fast and easy drum rolls."
 
 
 
@@ -105,7 +136,7 @@ release:
     You can find the binaries at [https://releases.pigeono.io](https://releases.pigeono.io)
 
   footer: |
-    ## Thanks
+    ## Thanks for supporting,
 
     Those were the changes on {{ .Tag }}!
     Don't forget if you like the tool and would like to help, there are several ways you can [help the project](https://pigeono.io/about/getinvolved/)
