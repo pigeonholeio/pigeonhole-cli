@@ -93,7 +93,7 @@ release:
   github:
     owner: pigeonholeio
     name: pigeonhole-cli
-  name_template: "{{.ProjectName}}-v{{.Version}}"
+  name_template: "{{.ProjectName}} v{{.Version}}"
 
   draft: false
   # replace_existing_draft: false
@@ -101,8 +101,8 @@ release:
   # use_existing_draft: true
   mode: replace
   header: |
-    # 🚀 A new PigeonHole CLI release 
-    You can also find the binaries hosted at [https://releases.pigeono.io](https://releases.pigeono.io)
+    # 🚀 A new PigeonHole CLI release
+    You can find the binaries at [https://releases.pigeono.io](https://releases.pigeono.io)
 
   footer: |
     ## Thanks
