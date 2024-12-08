@@ -83,7 +83,7 @@ blobs:
     ids:
     - default
     include_meta: true
-    # directory: "foo/bar/{{.Version}}"
+    directory: "pigeonhole-cli"
     # directory: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}"
     
 
