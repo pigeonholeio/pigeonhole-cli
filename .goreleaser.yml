@@ -1,6 +1,6 @@
 
 version: 2
-project_name: pigeonhole-cli
+project_name: PigeonHole Cli
 # dockers:
 # - dockerfile: Dockerfile
   # id: pigeonhole-cli
@@ -93,18 +93,22 @@ release:
   github:
     owner: pigeonholeio
     name: pigeonhole-cli
-  name_template: '{{.Tag}}'
-  draft: true
+  name_template: "{{.ProjectName}}-v{{.Version}}"
+  skip_upload: true
+  draft: false
   replace_existing_draft: true
+  replace_existing_artifacts: true
+  # use_existing_draft: true
   mode: replace
   header: |
     # 🚀 A new PigeonHole CLI release 
+    You can also find the binaries hosted at [https://releases.pigeono.io](https://releases.pigeono.io)
 
   footer: |
     ## Thanks
 
     Those were the changes on {{ .Tag }}!
-    Don't forget if you like the tool and would like to help, there are several ways you can [help the project](https://pigeono.io/about/getinvolved/){:target="_blank"}
+    Don't forget if you like the tool and would like to help, there are several ways you can [help the project](https://pigeono.io/about/getinvolved/)
     
 
   skip_upload: false
