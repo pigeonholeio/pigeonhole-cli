@@ -47,7 +47,7 @@ builds:
     no_unique_dist_dir: true
     dir: src
     main: .
-    binary: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole-cli"
+    binary: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole"
     # binary: pigeonhole
     builder: go
     gobinary: go
@@ -75,16 +75,16 @@ brews:
       branch: main
       git:
         private_key: /Users/server/.ssh/id_rsa
-blobs:
-  # You can have multiple blob configs
-  - provider: s3
-    region: eu-west-2
-    bucket: releases.pigeono.io
-    ids:
-    - default
-    include_meta: true
-    directory: "pigeonhole-cli"
-    # directory: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}"
+# blobs:
+#   # You can have multiple blob configs
+#   - provider: s3
+#     region: eu-west-2
+#     bucket: releases.pigeono.io
+#     ids:
+#     - default
+#     include_meta: false
+#     directory: "pigeonhole-cli"
+#     # directory: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}"
     
 
 
