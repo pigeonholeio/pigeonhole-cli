@@ -94,7 +94,7 @@ release:
     owner: pigeonholeio
     name: pigeonhole-cli
   name_template: '{{.Tag}}'
-  draft: false
+  draft: true
   replace_existing_draft: true
   mode: replace
   header: |
@@ -104,10 +104,8 @@ release:
     ## Thanks
 
     Those were the changes on {{ .Tag }}!
-    Don't forget if you like the tool and would like to help, there are several ways you can contribute and help the project;
-    1. Something as simply 🌟-ing the Github Project to show your appreciation
-    2. Let me know what you'd like to see in the tool by emailing directly or messing me on [keybase.io/rhysjtevans](https://keybase.io/rhysjtevans)
-    3. Consider sponsoring the project on Patreon or as a Github Sponsor
+    Don't forget if you like the tool and would like to help, there are several ways you can [help the project](https://pigeono.io/about/getinvolved/){:target="_blank"}
+    
 
   skip_upload: false
 
