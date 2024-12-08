@@ -1,0 +1,115 @@
+
+version: 2
+project_name: pigeonhole-cli
+dockers:
+- dockerfile: Dockerfile
+  id: pigeonhole-cli
+  # binaries:
+  # - pigeonhole-cli
+  # goos: linux
+  # goarch: amd64
+  # goarm: ''
+  # goamd64: 'v2'
+  skip_push: true
+  image_templates:
+    - "pigeonholeio/pigeonhole-cli:latest"
+# sboms:
+#   - artifacts: binary
+    # documents:
+    #   - "${artifact}.spdx.sbom"
+# archives:
+#   - format: gz
+#     files:
+#       - none*
+archives:
+  - format: tar.gz
+# signs:
+#   - artifacts: all
+report_sizes: false
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+builds:
+  - id: default
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    no_unique_dist_dir: true
+    dir: src
+    main: .
+    binary: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole-cli"
+    # binary: pigeonhole
+    builder: go
+    gobinary: go
+    command: build
+    ldflags:
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.Version={{.Version}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.CommitHash={{.ShortCommit}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.BuildTime={{.Date}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.BuiltBy=goreleaser
+    env:
+      - CGO_ENABLED=0
+
+
+brews:
+  - name: pigeonhole-cli
+
+    repository:
+      # Repository owner template. (templateable)
+      owner: pigeonholeio
+      # Repository name. (templateable)
+      name: homebrew-pigeonhole
+      # Optionally a branch can be provided. (templateable)
+      #
+      # Defaults to the default repository branch.
+      branch: main
+      git:
+        private_key: /Users/server/.ssh/id_rsa
+
+
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+
+# source:
+#   name_template: '{{ .ProjectName }}-{{ .Version }}'
+#   format: tar.gz
+gomod:
+  gobinary: go
+
+changelog:
+  sort: desc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^updaated'
+
+release:
+  github:
+    owner: pigeonholeio
+    name: pigeonhole-cli
+  name_template: '{{.Tag}}'
+  draft: true
+  replace_existing_draft: true
+  mode: replace
+  header: |
+    # 🚀 A new PigeonHole CLI release 
+
+  footer: |
+    ## Thanks
+
+    Those were the changes on {{ .Tag }}!
+    Don't forget if you like the tool and would like to help, there are several ways you can contribute and help the project;
+    1. Something as simply 🌟-ing the Github Project to show your appreciation
+    2. Let me know what you'd like to see in the tool by emailing directly or messing me on [keybase.io/rhysjtevans](https://keybase.io/rhysjtevans)
+    3. Consider sponsoring the project on Patreon or as a Github Sponsor
+
+  skip_upload: false
+
+
+  disable: false
