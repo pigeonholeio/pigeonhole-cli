@@ -1,18 +1,18 @@
 
 version: 2
 project_name: pigeonhole-cli
-dockers:
-- dockerfile: Dockerfile
-  id: pigeonhole-cli
-  # binaries:
-  # - pigeonhole-cli
-  # goos: linux
-  # goarch: amd64
-  # goarm: ''
-  # goamd64: 'v2'
-  skip_push: true
-  image_templates:
-    - "pigeonholeio/pigeonhole-cli:latest"
+# dockers:
+# - dockerfile: Dockerfile
+  # id: pigeonhole-cli
+  # # binaries:
+  # # - pigeonhole-cli
+  # # goos: linux
+  # # goarch: amd64
+  # # goarm: ''
+  # # goamd64: 'v2'
+  # skip_push: true
+  # image_templates:
+  #   - "pigeonholeio/pigeonhole-cli:latest"
 # sboms:
 #   - artifacts: binary
     # documents:
@@ -94,7 +94,7 @@ release:
     owner: pigeonholeio
     name: pigeonhole-cli
   name_template: '{{.Tag}}'
-  draft: true
+  draft: false
   replace_existing_draft: true
   mode: replace
   header: |
