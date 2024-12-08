@@ -94,7 +94,7 @@ release:
     owner: pigeonholeio
     name: pigeonhole-cli
   name_template: "{{.ProjectName}}-v{{.Version}}"
-  skip_upload: true
+
   draft: false
   replace_existing_draft: true
   replace_existing_artifacts: true
@@ -111,7 +111,7 @@ release:
     Don't forget if you like the tool and would like to help, there are several ways you can [help the project](https://pigeono.io/about/getinvolved/)
     
 
-  skip_upload: false
+  skip_upload: true
 
 
   disable: false
