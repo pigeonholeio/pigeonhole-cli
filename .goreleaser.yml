@@ -96,8 +96,8 @@ release:
   name_template: "{{.ProjectName}}-v{{.Version}}"
 
   draft: false
-  replace_existing_draft: true
-  replace_existing_artifacts: true
+  # replace_existing_draft: false
+  # replace_existing_artifacts: true
   # use_existing_draft: true
   mode: replace
   header: |
