@@ -80,11 +80,11 @@ blobs:
   - provider: s3
     region: eu-west-2
     bucket: releases.pigeono.io
-    # ids:
-    # - default
+    ids:
+    - default
     include_meta: true
     # directory: "foo/bar/{{.Version}}"
-    directory: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}"
+    # directory: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}"
     
 
 
