@@ -69,7 +69,7 @@ brews:
       branch: main
       git:
         private_key: /Users/server/.ssh/id_rsa
-    url_template: https://releases.pigeono.io/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole
+    # url_template: https://releases.pigeono.io/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole
     homepage: https://pigeono.io
     description: "Sending your secrets securely!"
     # skip_upload: false
