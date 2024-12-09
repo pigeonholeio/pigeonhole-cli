@@ -17,7 +17,7 @@ RUN yum update -y && \
     yum install -y bash-completion && \
     yum clean all
 
-COPY dist/pigeonhole-cli/$VERSION/$OS/$ARCH/pigeonhole /usr/bin/
+COPY pigeonhole-cli/$VERSION/$OS/$ARCH/pigeonhole /usr/bin/
 # Switch to the non-root user
 USER pigeonhole
 # Set the working directory
