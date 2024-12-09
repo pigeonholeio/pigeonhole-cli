@@ -23,13 +23,14 @@ project_name: PigeonHole Cli
 #       - none*
 archives:
 - format: binary
-  format_overrides:
-  - # Which GOOS to override the format for.
-    goos: windows
+  name_template: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole"
+  # format_overrides:
+  # - # Which GOOS to override the format for.
+  #   goos: windows
 
-    # The format to use for the given GOOS.
-    # Valid options are `tar.gz`, `tgz`, `tar.xz`, `txz`, tar`, `gz`, `zip`, `binary`, and `none`.
-    format: zip
+  #   # The format to use for the given GOOS.
+  #   # Valid options are `tar.gz`, `tgz`, `tar.xz`, `txz`, tar`, `gz`, `zip`, `binary`, and `none`.
+  #   format: zip
 # signs:
 #   - artifacts: all
 report_sizes: false
@@ -69,7 +70,7 @@ brews:
       branch: main
       git:
         private_key: /Users/server/.ssh/id_rsa
-    # url_template: https://releases.pigeono.io/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole
+    url_template: https://releases.pigeono.io/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole
     homepage: https://pigeono.io
     description: "Sending your secrets securely!"
     # skip_upload: false
