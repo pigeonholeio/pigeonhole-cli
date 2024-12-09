@@ -23,7 +23,7 @@ project_name: PigeonHole Cli
 #       - none*
 archives:
 - format: binary
-  name_template: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole"
+  name_template: "pigeonhole"
   # format_overrides:
   # - # Which GOOS to override the format for.
   #   goos: windows
