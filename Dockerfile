@@ -18,16 +18,10 @@ RUN yum update -y && \
     yum clean all
 
 COPY dist/pigeonhole-cli/$VERSION/$OS/$ARCH/pigeonhole /usr/bin/
-# Create a bash completion script for pigeonhole-cli
-SHELL ["/bin/bash","-c"]
-# RUN pigeonhole completion bash >> /home/pigeonhole/.bash_profile
-
-
 # Switch to the non-root user
 USER pigeonhole
-
 # Set the working directory
 WORKDIR /home/pigeonhole
-
+SHELL [ "/bin/bash", "-c" ]
 # Entry point (bash shell by default)
 CMD ["/bin/bash"]
