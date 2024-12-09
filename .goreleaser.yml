@@ -79,6 +79,8 @@ brews:
     url_template: https://releases.pigeono.io/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole.tar.gz
     homepage: https://pigeono.io
     description: "Sending your secrets securely!"
+    install: |
+      bin.install "{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole"
     # skip_upload: false
 # blobs:
 #   # You can have multiple blob configs
