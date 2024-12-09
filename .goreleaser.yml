@@ -68,6 +68,57 @@ builds:
       - CGO_ENABLED=0
 
 
+dockers:
+- image_templates:
+  - pigeonholeio/pigeonhole-cli:latest-amd64
+  - pigeonholeio/pigeonhole-cli:{{ .Version }}-amd64
+  - pigeonholeio/pigeonhole-cli:{{ .Major }}-amd64
+  - pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-amd64
+  use: buildx
+  build_flag_templates:
+    - "--pull"
+    - "--label=io.pigeono.cli.created={{.Date}}"
+    - "--label=io.pigeono.cli.title={{.ProjectName}}"
+    - "--label=io.pigeono.cli.revision={{.FullCommit}}"
+    - "--label=io.pigeono.cli.version={{.Version}}"
+    - "--platform=linux/amd64"
+- image_templates:
+  - pigeonholeio/pigeonhole-cli:latest-arm64
+  - pigeonholeio/pigeonhole-cli:{{ .Version }}-arm64
+  - pigeonholeio/pigeonhole-cli:{{ .Major }}-arm64
+  - pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-arm64
+  use: buildx
+  dockerfile: Dockerfile
+  build_flag_templates:
+    - "--pull"
+    - "--label=io.pigeono.cli.created={{.Date}}"
+    - "--label=io.pigeono.cli.title={{.ProjectName}}"
+    - "--label=io.pigeono.cli.revision={{.FullCommit}}"
+    - "--label=io.pigeono.cli.version={{.Version}}"
+    - "--platform=linux/arm64"
+  goarch: arm64
+
+docker_manifests:
+- name_template: "pigeonholeio/pigeonhole-cli:latest"
+  image_templates:
+    - "pigeonholeio/pigeonhole-cli:latest-amd64"
+    - "pigeonholeio/pigeonhole-cli:latest-arm64"
+- name_template: "pigeonholeio/pigeonhole-cli:{{ .Version }}"
+  image_templates:
+    - "pigeonholeio/pigeonhole-cli:{{ .Version }}-amd64"
+    - "pigeonholeio/pigeonhole-cli:{{ .Version }}-arm64"
+- name_template: "pigeonholeio/pigeonhole-cli:{{ .Major }}"
+  image_templates:
+    - "pigeonholeio/pigeonhole-cli:{{ .Major }}-amd64"
+    - "pigeonholeio/pigeonhole-cli:{{ .Major }}-arm64"
+- name_template: "pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}"
+  image_templates:
+    - "pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-amd64"
+    - "pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-arm64"
+
+
+    
+
 brews:
   - name: pigeonhole-cli
     repository:

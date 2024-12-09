@@ -1,3 +1,3 @@
-FROM scratch
-ENTRYPOINT ["/pigeonhole"]
-COPY pigeonhole /
+FROM rockylinux:9
+
+# ENTRYPOINT ["/pigeonhole"]
