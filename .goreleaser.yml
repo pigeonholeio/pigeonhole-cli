@@ -24,8 +24,8 @@ project_name: PigeonHole Cli
 archives:
 
   - name_template: "pigeonhole-cli/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole"
-    files:
-      - none*
+    # files:
+    #   - none*
 
 # - format: binary
 #   name_template: pigeonhole
