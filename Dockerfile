@@ -9,8 +9,8 @@ ARG VERSION
 ARG OS
 ARG ARCH
 # Set up environment variables
-ENV HOME /home/pigeonhole
-ENV USER pigeonhole
+ENV HOME=/home/pigeonhole
+ENV USER=pigeonhole
 # Add a non-root user called pigeonhole with a home directory
 RUN useradd -m -s /bin/bash $USER
 # Install bash-completion
