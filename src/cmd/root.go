@@ -31,7 +31,7 @@ It's that easy! 🎉`,
 		ConfigureLogger()
 
 		common.GlobalPigeonHoleClient, common.GlobalCtx = common.NewPigeonHoleClient()
-		if cmd.Use == "support" || cmd.Use == "docs" || cmd.Use == "login" || cmd.Use == "version" || (cmd.Parent().Name() != "key" && cmd.Use == "init") {
+		if cmd.Use == "support" || cmd.Use == "docs" || cmd.Use == "login" || cmd.Use == "version" || cmd.Parent().Name() == "completion" || (cmd.Parent().Name() != "key" && cmd.Use == "init") {
 			return
 		}
 		resp, errx := common.GlobalPigeonHoleClient.UserMeGetWithResponse(common.GlobalCtx)

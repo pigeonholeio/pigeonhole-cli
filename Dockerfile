@@ -5,25 +5,23 @@
 
 # Use Rocky Linux 9 as the base image
 FROM rockylinux:9
-ARG VERSION
-ARG OS
-ARG ARCH
-# Set up environment variables
-ENV HOME=/home/pigeonhole
-ENV USER=pigeonhole
+ARG VERSION="0.4.19"
+ARG OS="linux"
+ARG ARCH="amd64"
 # Add a non-root user called pigeonhole with a home directory
 RUN useradd -m -s /bin/bash pigeonhole
+
+# RUN chown -R pigeonhole:pigeonhole /home/pigeonhole
 # Install bash-completion
 RUN yum update -y && \
     yum install -y bash-completion && \
     yum clean all
 
-COPY pigeonhole-cli/$VERSION/$OS/$ARCH/pigeonhole /usr/bin/pigeonhole
+COPY dist/pigeonhole-cli/$VERSION/$OS/$ARCH/pigeonhole /usr/bin/
 # Create a bash completion script for pigeonhole-cli
-RUN chmod +x /usr/bin/pigeonhole && pigeonhole completion bash >> /home/pigeonhole/.bash_profile
+SHELL ["/bin/bash","-c"]
+# RUN pigeonhole completion bash >> /home/pigeonhole/.bash_profile
 
-# Change ownership of the home directory to the new user
-RUN chown -R pigeonhole:pigeonhole /home/pigeonhole
 
 # Switch to the non-root user
 USER pigeonhole
