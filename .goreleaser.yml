@@ -84,8 +84,8 @@ dockers:
     - "--label=io.pigeono.cli.revision={{.FullCommit}}"
     - "--label=io.pigeono.cli.version={{.Version}}"
     - "--build-arg=VERSION={{ .Version }}"
-    - "--build-arg=OS={{ .Os }}"
-    - "--build-arg=ARCH={{ .Arch }}"
+    - "--build-arg=OS=linux"
+    - "--build-arg=ARCH=amd64"
     - "--platform=linux/amd64"
 - image_templates:
   - pigeonholeio/pigeonhole-cli:latest-arm64
@@ -101,8 +101,8 @@ dockers:
     - "--label=io.pigeono.cli.revision={{.FullCommit}}"
     - "--label=io.pigeono.cli.version={{.Version}}"
     - "--build-arg=VERSION={{ .Version }}"
-    - "--build-arg=OS={{ .Os }}"
-    - "--build-arg=ARCH={{ .Arch }}"
+    - "--build-arg=OS=linux"
+    - "--build-arg=ARCH=arm64"
     - "--platform=linux/arm64"
   goarch: arm64
 
