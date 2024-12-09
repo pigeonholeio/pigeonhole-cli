@@ -5,7 +5,9 @@
 
 # Use Rocky Linux 9 as the base image
 FROM rockylinux:9
-
+ARG VERSION
+ARG OS
+ARG ARCH
 # Set up environment variables
 ENV HOME /home/pigeonhole
 ENV USER pigeonhole
@@ -16,7 +18,7 @@ RUN yum update -y && \
     yum install -y bash-completion && \
     yum clean all
 
-COPY pigeonhole-cli/{{ .Version }}/ {{ .Os }}/{{ .Arch }}/pigeonhole /usr/bin/pigeonhole
+COPY pigeonhole-cli/$VERSION/$OS/$ARCH/pigeonhole /usr/bin/pigeonhole
 # Create a bash completion script for pigeonhole-cli
 RUN chmod +x /usr/bin/pigeonhole && pigeonhole completion bash >> /home/pigeonhole/.bash_profile
 

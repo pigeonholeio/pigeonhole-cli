@@ -76,13 +76,16 @@ dockers:
   - pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-amd64
   use: buildx
   skip_push: true
-  templated_dockerfile: Dockerfile
+  # templated_dockerfile: Dockerfile
   build_flag_templates:
     - "--pull"
     - "--label=io.pigeono.cli.created={{.Date}}"
     - "--label=io.pigeono.cli.title={{.ProjectName}}"
     - "--label=io.pigeono.cli.revision={{.FullCommit}}"
     - "--label=io.pigeono.cli.version={{.Version}}"
+    - "--build-arg=VERSION={{ .VERSION }}"
+    - "--build-arg=OS={{ .Os }}"
+    - "--build-arg=ARCH={{ .Arch }}"
     - "--platform=linux/amd64"
 - image_templates:
   - pigeonholeio/pigeonhole-cli:latest-arm64
@@ -90,13 +93,16 @@ dockers:
   - pigeonholeio/pigeonhole-cli:{{ .Major }}-arm64
   - pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-arm64
   use: buildx
-  templated_dockerfile: Dockerfile
+  # templated_dockerfile: Dockerfile
   build_flag_templates:
     - "--pull"
     - "--label=io.pigeono.cli.created={{.Date}}"
     - "--label=io.pigeono.cli.title={{.ProjectName}}"
     - "--label=io.pigeono.cli.revision={{.FullCommit}}"
     - "--label=io.pigeono.cli.version={{.Version}}"
+    - "--build-arg=VERSION={{ .VERSION }}"
+    - "--build-arg=OS={{ .Os }}"
+    - "--build-arg=ARCH={{ .Arch }}"
     - "--platform=linux/arm64"
   goarch: arm64
 
