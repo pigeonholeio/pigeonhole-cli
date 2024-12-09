@@ -22,7 +22,7 @@ project_name: PigeonHole Cli
 #     files:
 #       - none*
 archives:
-- format: tar.gz
+- format: binary
   format_overrides:
   - # Which GOOS to override the format for.
     goos: windows
@@ -71,6 +71,7 @@ brews:
         private_key: /Users/server/.ssh/id_rsa
     url_template: https://releases.pigeono.io/{{ .Version }}/{{ .Os }}/{{ .Arch }}/pigeonhole
     homepage: https://pigeono.io
+    description: "Sending your secrets securely!"
     # skip_upload: false
 # blobs:
 #   # You can have multiple blob configs
