@@ -116,9 +116,6 @@ docker_manifests:
     - "pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-amd64"
     - "pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-arm64"
 
-
-    
-
 brews:
   - name: pigeonhole-cli
     repository:
