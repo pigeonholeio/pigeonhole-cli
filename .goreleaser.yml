@@ -75,6 +75,8 @@ dockers:
   - pigeonholeio/pigeonhole-cli:{{ .Major }}-amd64
   - pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-amd64
   use: buildx
+  skip_push: true
+  templated_dockerfile: Dockerfile
   build_flag_templates:
     - "--pull"
     - "--label=io.pigeono.cli.created={{.Date}}"
@@ -88,7 +90,7 @@ dockers:
   - pigeonholeio/pigeonhole-cli:{{ .Major }}-arm64
   - pigeonholeio/pigeonhole-cli:{{ .Major }}.{{ .Minor }}-arm64
   use: buildx
-  dockerfile: Dockerfile
+  templated_dockerfile: Dockerfile
   build_flag_templates:
     - "--pull"
     - "--label=io.pigeono.cli.created={{.Date}}"
@@ -100,6 +102,7 @@ dockers:
 
 docker_manifests:
 - name_template: "pigeonholeio/pigeonhole-cli:latest"
+  skip_push: true
   image_templates:
     - "pigeonholeio/pigeonhole-cli:latest-amd64"
     - "pigeonholeio/pigeonhole-cli:latest-arm64"
