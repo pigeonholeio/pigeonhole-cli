@@ -40,7 +40,7 @@ var SecretsDropCmd = &cobra.Command{
 
 	Run: func(cmd *cobra.Command, args []string) {
 		recipients, _ := cmd.Flags().GetStringSlice("recipient")
-
+		fmt.Println("Note: There is a max file size per secret of 100MB while the service is in beta. To increase this cap email feedback@pigeono.io.")
 		reference := common.GenerateCodeWord(3)
 		newSecretRequest := sdk.CreateSecret{
 			RecipientIds: recipients,
