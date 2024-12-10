@@ -19,6 +19,7 @@ var loginCmd = &cobra.Command{
 Pigeonhole currently only supports Azure Active Directory.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Note: Just a reminder, while in beta PigeonHole is currently limited to supporting Microsoft accounts (Personal or Corporate). Email feedback@pigeono.io to support your Identity Provider.")
 		viper.SafeWriteConfig()
 		token, err := auth.AuthenticateWithAzureDeviceCode()
 		if err != nil {
