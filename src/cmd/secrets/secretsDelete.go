@@ -17,25 +17,25 @@ var SecretsDeleteCmd = &cobra.Command{
 	Long:  `Delete secrets you may no longer want or need.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		all, _ := cmd.Flags().GetBool("all")
-		query, _ := cmd.Flags().GetString("query")
+		reference, _ := cmd.Flags().GetString("reference")
 
-		if all && query != "" {
-			fmt.Println("Error: --all, --query, and --id flags are mutually exclusive")
+		if all && reference != "" {
+			fmt.Println("Error: --all, --reference flags are mutually exclusive")
 		}
 		var resp *sdk.SecretDeleteResponse
 		s := sdk.SecretDeleteParams{}
-		if query != "" {
-			s.Reference = &query
+		if reference != "" {
+			s.Reference = &reference
 		}
 		if all {
 			logger.Log.Debugf("Deleting all secrets...")
 			resp, _ = common.GlobalPigeonHoleClient.SecretDeleteWithResponse(common.GlobalCtx, &s)
-		} else if query != "" {
+		} else if reference != "" {
 			resp, _ = common.GlobalPigeonHoleClient.SecretDeleteWithResponse(common.GlobalCtx, &s)
-			logger.Log.Debugf("Deleting secrets by query: %s\n", query)
+			logger.Log.Debugf("Deleting secrets by reference: %s\n", reference)
 
 		} else {
-			fmt.Println("Error: You must specify one of --all or --query\n")
+			fmt.Println("Error: You must specify one of --all or --reference\n")
 			common.DisplayHelp(cmd, args)
 			os.Exit(1)
 		}
@@ -49,5 +49,5 @@ var SecretsDeleteCmd = &cobra.Command{
 
 func init() {
 	SecretsDeleteCmd.Flags().BoolP("all", "a", false, "Delete all secrets that you have sent/received")
-	SecretsDeleteCmd.Flags().StringP("query", "q", "", "Delete secrets by reference or id")
+	SecretsDeleteCmd.Flags().StringP("reference", "r", "", "Delete secrets by reference or id")
 }
