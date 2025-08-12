@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/Pallinder/go-randomdata v1.2.0
 	github.com/ProtonMail/gopenpgp/v2 v2.7.4
-	github.com/deepmap/oapi-codegen v1.16.2
+	github.com/deepmap/oapi-codegen v1.16.3
 	github.com/drewstinnett/go-output-format v1.0.0
 	github.com/fatih/color v1.17.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
