@@ -1,6 +1,8 @@
 module github.com/pigeonholeio/pigeonhole-cli
 
-go 1.18
+go 1.21
+
+toolchain go1.24.6
 
 require (
 	github.com/Pallinder/go-randomdata v1.2.0
@@ -8,7 +10,7 @@ require (
 	github.com/deepmap/oapi-codegen v1.16.3
 	github.com/drewstinnett/go-output-format v1.0.0
 	github.com/fatih/color v1.18.0
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
