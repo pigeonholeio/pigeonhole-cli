@@ -4,7 +4,7 @@
 # ENTRYPOINT ["/pigeonhole"]
 
 # Use Rocky Linux 9 as the base image
-FROM rockylinux:9
+FROM rockylinux:9.0
 ARG VERSION="0.4.19"
 ARG OS="linux"
 ARG ARCH="amd64"
