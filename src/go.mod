@@ -7,7 +7,7 @@ require (
 	github.com/ProtonMail/gopenpgp/v2 v2.7.4
 	github.com/deepmap/oapi-codegen v1.16.3
 	github.com/drewstinnett/go-output-format v1.0.0
-	github.com/fatih/color v1.17.0
+	github.com/fatih/color v1.18.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/sirupsen/logrus v1.9.3
@@ -37,7 +37,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
