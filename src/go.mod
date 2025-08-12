@@ -8,7 +8,7 @@ require (
 	github.com/deepmap/oapi-codegen v1.16.2
 	github.com/drewstinnett/go-output-format v1.0.0
 	github.com/fatih/color v1.17.0
-	github.com/golang-jwt/jwt/v5 v5.2.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/oapi-codegen/runtime v1.1.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
