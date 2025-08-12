@@ -1,4 +1,4 @@
-FROM rockylinux:9.1
+FROM docker.io/rockylinux:9.1
 ARG VERSION="0.4.19"
 ARG OS="linux"
 ARG ARCH="amd64"
