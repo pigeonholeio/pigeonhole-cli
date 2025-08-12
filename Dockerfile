@@ -1,10 +1,4 @@
-# FROM rockylinux:9
-# COPY pigeonhole-cli/0.4.19/linux/amd64/pigeonhole /usr/bin
-# WORKDIR
-# ENTRYPOINT ["/pigeonhole"]
-
-# Use Rocky Linux 9 as the base image
-FROM rockylinux:9.0
+FROM rockylinux:9.1
 ARG VERSION="0.4.19"
 ARG OS="linux"
 ARG ARCH="amd64"
