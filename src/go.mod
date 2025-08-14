@@ -8,7 +8,7 @@ require (
 	github.com/Pallinder/go-randomdata v1.2.0
 	github.com/ProtonMail/gopenpgp/v3 v3.3.0
 	github.com/ProtonMail/gopenpgp/v3 v3.3.0
-	github.com/deepmap/oapi-codegen v1.16.3
+	github.com/deepmap/oapi-codegen/v2 v2.5.0
 	github.com/drewstinnett/go-output-format v1.0.0
 	github.com/fatih/color v1.18.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
