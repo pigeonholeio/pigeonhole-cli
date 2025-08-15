@@ -28,12 +28,13 @@ jobs:
             
 
             while read -r file; do
+              echo $file
               if [[ "$file" =~ ^src/([^/]+)/ ]]; then
-                echo $file
                 tagTrigger=true
                 break
               fi
             done \<<< "$changed_files"
+            echo "Tag Trigger: $tagTrigger"
 
             if [ "$tagTrigger" = true ]; then
               echo "Tagging the repo"
