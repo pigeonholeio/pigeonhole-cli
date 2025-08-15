@@ -20,7 +20,7 @@ jobs:
             bump_script=".circleci/bump.sh"
             artefact="pigeonhole-cli"
             artefact_file="artefact.yml"
-            tagTrigger=false
+            tagTrigger=0
 
             git config --global --add safe.directory "$(pwd)"
 
@@ -30,13 +30,13 @@ jobs:
             while read -r file; do
               echo $file
               if [[ "$file" =~ ^src/([^/]+)/ ]]; then
-                tagTrigger=true
+                tagTrigger=1
                 break
               fi
             done \<<< "$changed_files"
             echo "Tag Trigger: $tagTrigger"
 
-            if [ "$tagTrigger" = true ]; then
+            if [ "$tagTrigger" = 1 ]; then
               echo "Tagging the repo"
 
               if [[ -f "$artefact_file" ]]; then
