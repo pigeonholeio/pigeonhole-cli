@@ -1,0 +1,94 @@
+version: 2
+project_name: pigeonhole-cli
+report_sizes: true
+metadata:
+  # Set the modified timestamp on the metadata files.
+  #
+  # Templates: allowed.
+  mod_timestamp: "{{ .CommitTimestamp }}"
+builds:
+  - id: default
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    no_unique_dist_dir: false
+
+    dir: src
+    main: .
+    binary: pigeonhole
+    builder: go
+    gobinary: go
+    command: build
+    ldflags:
+      - -X github.com/pigeonholeio/pigeonhole-cli/artefacts/cli/cmd.Version={{.Version}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/artefacts/cli/cmd.CommitHash={{.ShortCommit}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/artefacts/cli/cmd.BuildTime={{.Date}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/artefacts/cli/cmd.BuiltBy=goreleaser
+    env:
+      - CGO_ENABLED=0
+
+snapshot:
+  name_template: '{{ .Version }}-{{.ShortCommit}}'
+
+brews:
+  - name: pigeonhole-cli
+    directory: Formula
+
+    repository:
+      # Repository owner template. (templateable)
+      owner: pigeonholeio
+      # Repository name. (templateable)
+      name: homebrew-pigeonhole
+      # Optionally a branch can be provided. (templateable)
+      #
+      # Defaults to the default repository branch.
+      branch: main
+      git:
+        private_key: /Users/rhysevans/.ssh/id_rsa
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+# dist: dist
+# source:
+#   name_template: '{{ .ProjectName }}-{{ .Version }}'
+#   format: tar.gz
+gomod:
+  gobinary: go
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^updaated'
+
+release:
+  github:
+    owner: pigeonholeio
+    name: pigeonhole-cli
+  name_template: '{{.Tag}}'
+  draft: false
+  replace_existing_draft: true
+  mode: replace
+  header: |
+    # 🚀 A new PigeonHole release 
+
+  footer: |
+    ## Thanks
+
+    Those were the changes on {{ .Tag }}!
+    Don't forget if you like the tool and would like to help, there are several ways you can contribute and help the project;
+    1. Something as simply 🌟-ing the Github Project to show your appreciation
+    2. Let me know what you'd like to see in the tool by emailing directly or messing me on [keybase.io/rhysjtevans](https://keybase.io/rhysjtevans)
+    3. Consider sponsoring the project on Patreon or as a Github Sponsor
+
+  skip_upload: false
+
+
+  disable: false
