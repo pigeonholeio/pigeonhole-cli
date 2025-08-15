@@ -28,6 +28,7 @@ jobs:
               fi
             done
             if $tagTrigger; then
+              echo "Tagging the repo"
 
               if [[ -f "$artefact_file" ]]; then
                 $bump_script "$artefact_file"
@@ -44,6 +45,8 @@ jobs:
               else
                 echo "Warning: $artefact_file not found for $artefact"
               fi
+            else 
+              echo "Not tagging the repo"
             fi
             
   build-container:
