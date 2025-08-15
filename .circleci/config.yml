@@ -1,0 +1,111 @@
+version: 2.1
+
+jobs:
+  bump-artefacts:
+    docker:
+      - image: docker.io/cimg/base:2025.08-24.04
+    working_directory: ~/repo
+    steps:
+      - checkout
+      # - run:
+      #     name: Install dependencies
+      #     command: |
+      #       sudo apt update && sudo apt install -y git grep awk sed
+      - run:
+          name: Find changed artefacts and bump versions
+          command: |
+            #!/usr/bin/env bash
+            set -e
+            bump_script=".circleci/bump.sh"
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+            artefact="pigeonhole-cli"
+            artefact_file="artefact.yml"
+
+            for file in $changed_files; do
+              if [[ "$file" =~ ^src/([^/]+)/ ]]; then
+                if [[ -f "$artefact_file" ]]; then
+                  $bump_script "$artefact_file"
+                  new_version=$(grep -E '^\s*version:' "$artefact_file" | awk '{print $2}')
+                  git config user.name "circleci"
+                  git config user.email "circleci@local"
+                  git add $artefact_file
+                  git commit -m "[skip ci] Bump artefact versions"
+                  tag="pigeonhole-cli@${new_version}"
+                  git tag $tag
+                  git push origin HEAD
+                  git push origin --tags
+                  
+                else
+                  echo "Warning: $artefact_file not found for $artefact"
+                fi
+              fi
+            done
+  build-container:
+    docker:
+      - image: docker.io/cimg/base:2025.08-24.04
+    working_directory: ~/repo
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - checkout
+      - run:
+          name: Log in to DockerHub
+          command: |
+            echo "$DOCKERHUB_PIGEONHOLEIO_TOKEN" | docker login -u "$DOCKERHUB_PIGEONHOLEIO_USERNAME" --password-stdin
+      - run:
+          name: Build and push Docker image
+          command: |
+            # Use git tag as image tag
+            TAG=$(echo $CIRCLE_TAG)
+            # Extract artefact name from tag (artefact@version)
+            export ARTEFACT_NAME=${TAG%@*}
+            export ARTEFACT_TAG="${TAG#*@}"
+            IMAGE="docker.io/pigeonholeio/${ARTEFACT_NAME}:${ARTEFACT_TAG}"
+            make release
+workflows:
+  version: 2
+  bump-workflow:
+    jobs:
+      - bump-artefacts
+
+
+  build-workflow:
+    jobs:
+      - build-container:
+          context:
+          - Default
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
+
+# version: 2.1
+
+# jobs:
+#   build-and-push:
+#     docker:
+#       - image: docker.io/cimg/base:2025.08-24.04
+#     steps:
+#       - checkout
+
+#       - setup_remote_docker:
+#           docker_layer_caching: true
+
+#       - run:
+#           name: docker build & push
+#           command: |
+#             docker login -u $DOCKERHUB_PIGEONHOLEIO_USERNAME -p $DOCKERHUB_PIGEONHOLEIO_TOKEN
+#             docker build -t docker.io/pigeonholeio/pigeonhole-api:latest .
+#             docker push docker.io/pigeonholeio/pigeonhole-api:latest
+
+# workflows:
+#   version: 2
+#   build-and-push-main:
+#     jobs:
+#       - build-and-push:
+#           context:
+#             - Default
+#           filters:
+#             branches:
+#               only: main
