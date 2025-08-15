@@ -29,10 +29,11 @@ jobs:
 
             while read -r file; do
               echo $file
-              if [[ "$file" =~ ^src/([^/]+)/ ]]; then
+              if [[ $file =~ ^src/[^/]+/ ]]; then
                 tagTrigger=1
                 break
               fi
+
             done \<<< "$changed_files"
             echo "Tag Trigger: $tagTrigger"
 
