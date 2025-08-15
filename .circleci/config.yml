@@ -15,39 +15,53 @@ jobs:
           name: Find changed artefacts and bump versions
           command: |
             #!/usr/bin/env bash
-            set -e
+            set -euo pipefail
+
             bump_script=".circleci/bump.sh"
-            changed_files=$(git diff --name-only HEAD~1 HEAD)
             artefact="pigeonhole-cli"
             artefact_file="artefact.yml"
-            echo $changed_files
             tagTrigger=false
-            for file in $changed_files; do
+
+            git config --global --add safe.directory "$(pwd)"
+
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+            echo "$changed_files"
+
+            while read -r file; do
               if [[ "$file" =~ ^src/([^/]+)/ ]]; then
                 tagTrigger=true
+                break
               fi
-            done
-            if $tagTrigger; then
+            done <<< "$changed_files"
+
+            if [ "$tagTrigger" = true ]; then
               echo "Tagging the repo"
 
               if [[ -f "$artefact_file" ]]; then
-                $bump_script "$artefact_file"
-                new_version=$(grep -E '^\s*version:' "$artefact_file" | awk '{print $2}')
-                git config user.name "circleci"
-                git config user.email "circleci@local"
-                git add $artefact_file
-                git commit -m "[skip ci] Bump artefact versions"
-                tag="pigeonhole-cli@${new_version}"
-                git tag $tag
-                git push origin HEAD
-                git push origin --tags
-                
+                "$bump_script" "$artefact_file"
+
+                # Only commit if file actually changed
+                if ! git diff --quiet "$artefact_file"; then
+                  new_version=$(grep -E '^\s*version:' "$artefact_file" | awk '{print $2}')
+                  git config user.name "circleci"
+                  git config user.email "circleci@local"
+                  git add "$artefact_file"
+                  git commit -m "[skip ci] Bump artefact versions"
+                  tag="${artefact}@${new_version}"
+                  git tag "$tag"
+                  git push origin HEAD
+                  git push origin --tags
+                else
+                  echo "No version change detected; skipping commit."
+                fi
+
               else
                 echo "Warning: $artefact_file not found for $artefact"
               fi
-            else 
+            else
               echo "Not tagging the repo"
             fi
+
             
   build-container:
     docker:
