@@ -25,10 +25,11 @@ jobs:
             git config --global --add safe.directory "$(pwd)"
 
             changed_files=$(git diff --name-only HEAD~1 HEAD)
-            echo "$changed_files"
+            
 
             while read -r file; do
               if [[ "$file" =~ ^src/([^/]+)/ ]]; then
+                echo $file
                 tagTrigger=true
                 break
               fi
