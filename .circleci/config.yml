@@ -66,7 +66,7 @@ jobs:
             fi
 
             
-  build-container:
+  build-release:
     docker:
       - image: docker.io/cimg/base:2025.08-24.04
     working_directory: ~/repo
@@ -81,13 +81,16 @@ jobs:
       - run:
           name: Build and push Docker image
           command: |
+            echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+            sudo apt update
+            sudo apt install goreleaser
             # Use git tag as image tag
             TAG=$(echo $CIRCLE_TAG)
             # Extract artefact name from tag (artefact@version)
             export ARTEFACT_NAME=${TAG%@*}
             export ARTEFACT_TAG="${TAG#*@}"
             IMAGE="docker.io/pigeonholeio/${ARTEFACT_NAME}:${ARTEFACT_TAG}"
-            make release
+            goreleaser release --clean --fail-fast --auto-snapshot
 workflows:
   version: 2
   bump-workflow:
