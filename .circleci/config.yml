@@ -100,7 +100,7 @@ workflows:
 
   build-workflow:
     jobs:
-      - build-container:
+      - build-release:
           context:
           - Default
           filters:
