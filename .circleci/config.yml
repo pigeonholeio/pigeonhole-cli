@@ -21,25 +21,31 @@ jobs:
             artefact="pigeonhole-cli"
             artefact_file="artefact.yml"
             echo $changed_files
+            tagTrigger=false
             for file in $changed_files; do
               if [[ "$file" =~ ^src/([^/]+)/ ]]; then
-                if [[ -f "$artefact_file" ]]; then
-                  $bump_script "$artefact_file"
-                  new_version=$(grep -E '^\s*version:' "$artefact_file" | awk '{print $2}')
-                  git config user.name "circleci"
-                  git config user.email "circleci@local"
-                  git add $artefact_file
-                  git commit -m "[skip ci] Bump artefact versions"
-                  tag="pigeonhole-cli@${new_version}"
-                  git tag $tag
-                  git push origin HEAD
-                  git push origin --tags
-                  
-                else
-                  echo "Warning: $artefact_file not found for $artefact"
-                fi
+                tagTrigger=true
               fi
             done
+            if $tagTrigger; then
+
+              if [[ -f "$artefact_file" ]]; then
+                $bump_script "$artefact_file"
+                new_version=$(grep -E '^\s*version:' "$artefact_file" | awk '{print $2}')
+                git config user.name "circleci"
+                git config user.email "circleci@local"
+                git add $artefact_file
+                git commit -m "[skip ci] Bump artefact versions"
+                tag="pigeonhole-cli@${new_version}"
+                git tag $tag
+                git push origin HEAD
+                git push origin --tags
+                
+              else
+                echo "Warning: $artefact_file not found for $artefact"
+              fi
+            fi
+            
   build-container:
     docker:
       - image: docker.io/cimg/base:2025.08-24.04
