@@ -51,7 +51,7 @@ jobs:
                   git add "$artefact_file"
                   git commit -m "[skip ci] Bump artefact versions"
                   tag="${artefact}@${new_version}"
-                  git tag "$tag"
+                  git tag "$new_version"
                   git push origin HEAD
                   git push origin --tags
                 else
