@@ -32,7 +32,7 @@ jobs:
                 tagTrigger=true
                 break
               fi
-            done <<< "$changed_files"
+            done \<<< "$changed_files"
 
             if [ "$tagTrigger" = true ]; then
               echo "Tagging the repo"
