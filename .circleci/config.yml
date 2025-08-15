@@ -95,7 +95,10 @@ workflows:
   version: 2
   bump-workflow:
     jobs:
-      - bump-artefacts
+      - bump-artefacts:
+          filters:
+            branches:
+              only: main
 
 
   build-workflow:
