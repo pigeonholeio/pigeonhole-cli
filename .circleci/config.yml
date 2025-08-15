@@ -20,7 +20,7 @@ jobs:
             changed_files=$(git diff --name-only HEAD~1 HEAD)
             artefact="pigeonhole-cli"
             artefact_file="artefact.yml"
-
+            echo $changed_files
             for file in $changed_files; do
               if [[ "$file" =~ ^src/([^/]+)/ ]]; then
                 if [[ -f "$artefact_file" ]]; then
