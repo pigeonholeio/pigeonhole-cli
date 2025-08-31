@@ -91,7 +91,7 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 type ClientInterface interface {
 	// PostAuthOidcHandlerGenericWithBody request with any body
 	PostAuthOidcHandlerGenericWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-	PostAuthOidcCleverHandler(ctx context.Context, provider *OIDCProvider, idPToken *OIDCProviderToken, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	PostAuthOidcHandlerGeneric(ctx context.Context, body PostAuthOidcHandlerGenericJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostAuthOidcHandlerGenericJwtWithBody request with any body
