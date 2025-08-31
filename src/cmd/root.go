@@ -6,28 +6,48 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
-	"github.com/pigeonholeio/pigeonhole-cli/common"
 	"github.com/pigeonholeio/pigeonhole-cli/config"
+	"github.com/pigeonholeio/pigeonhole-cli/sdk"
+	"github.com/pigeonholeio/pigeonhole-cli/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var timeoutSec int
+var (
+	timeoutSec       int
+	PigeonHoleClient sdk.ClientWithResponses
+	GlobalCtx        context.Context
+	PigeonHoleConfig config.PigeonHoleConfig
+	ContextCancel    context.CancelFunc
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "pigeonhole",
 	Short: "Sending secrets securely.",
 	Long:  `This command will display the size of a directory with several different options.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if cmd.Use == "login" || cmd.Use == "version" || (cmd.Parent().Name() != "key" && cmd.Use == "init") {
+		// InitConfig()
+		SetLogger()
+		GlobalCtx, ContextCancel = context.WithTimeout(context.Background(), 60*time.Second)
+		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig)
+		if cmd.Annotations["skip-pre-run"] == "true" {
+			logrus.Debugln("skipping-pre-run for: ", cmd.CommandPath())
 			return
 		}
+		fmt.Println("Running pre-run for:", cmd.CommandPath())
 
-		common.GlobalPigeonHoleClient, common.GlobalCtx = common.NewPigeonHoleClient(timeoutSec)
+		// if cmd.Parent().Name() == "secret" || cmd.Use == "version" || (cmd.Parent().Name() != "key" && cmd.Use == "init") {
+		// 	return
+		// }
 
-		resp, errx := common.GlobalPigeonHoleClient.UserMeGetWithResponse(common.GlobalCtx)
+		// context.WithTimeout(context.Background(), (time.Duration(5 * time.Second)))
+		// GlobalCtx = context.WithValue(GlobalCtx, "pigeonHoleClient", PigeonHoleClient)
+		// GlobalCtx = context.WithValue(GlobalCtx, "pigeonHoleConfig", PigeonHoleConfig)
+
+		resp, errx := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
 
 		if errx != nil {
 			logrus.Debug(errx)
@@ -39,18 +59,21 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		if resp.StatusCode() == http.StatusForbidden {
-			fmt.Println("🛡️ Invalid Token (Forbidden) - Try signing back in using `pigeonhole login`")
+			fmt.Println("🛡️ Invalid Token (Forbidden) - Try signing back in using `pigeonhole auth`")
 			os.Exit(1)
 		} else if resp.StatusCode() == http.StatusUnauthorized {
-			fmt.Println("🛡️ Invalid Token (Unauthorized) - Try signing back in using `pigeonhole login`")
+			fmt.Println("🛡️ Invalid Token (Unauthorized) - Try signing back in using `pigeonhole auth`")
 			os.Exit(1)
 		} else if resp.StatusCode() == http.StatusInternalServerError {
 			fmt.Println("The Pigeonhole server is misbehaving, Sorry, it'll be fixed soon!")
 			os.Exit(1)
 		}
-		if common.KeysExist() != true && viper.GetString("auth.token") != "" {
+		if utils.KeysExist() != true && viper.GetString("auth.token") != "" {
 			fmt.Println("WARNING: No keys exist yet! Set one with pigeonhole-cli keys init")
 		}
+		//
+		// cmd.SetContext(GlobalCtx)
+		// GlobalCtx
 	},
 }
 
@@ -60,13 +83,56 @@ func Execute() {
 }
 
 var verbose bool
+var cfgFile string
 
 func init() {
+	// timeoutSec = 5
 
-	cobra.OnInitialize(config.InitConfig)
-	timeoutSec = 5
-	rootCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.pigeonhole/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.pigeonhole/config.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Display more verbose output in console output. (default: false)")
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 
+	InitConfig()
+}
+
+func InitConfig() {
+	v := viper.New()
+
+	if cfgFile != "" {
+		v.SetConfigFile(cfgFile)
+	} else {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			logrus.Fatalf("could not determine home directory: %v", err)
+		}
+		v.AddConfigPath(fmt.Sprintf("%s/.pigeonhole", home))
+		v.SetConfigName("config")
+		v.SetConfigType("yaml")
+	}
+
+	// sensible defaults
+	v.SetDefault("api.url", "http://localhost:3000/v1")
+	v.SetDefault("log.level", "info")
+
+	// environment variables override
+	v.AutomaticEnv()
+
+	if err := v.ReadInConfig(); err != nil {
+		logrus.Warnf("Could not read config file: %v", err)
+	}
+
+	if err := v.Unmarshal(&PigeonHoleConfig); err != nil {
+		logrus.Fatalf("Unable to decode into struct: %v", err)
+	}
+
+}
+
+func SetLogger() {
+	logrus.SetFormatter(&logrus.TextFormatter{
+		TimestampFormat: "2006-01-02T15:04:05Z07:00", // ISO8601 Format
+	})
+	logrus.SetReportCaller(false)
+	if verbose {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 }

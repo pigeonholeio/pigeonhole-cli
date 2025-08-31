@@ -16,8 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	cmd "github.com/pigeonholeio/pigeonhole-cli/cmd/me"
-	"github.com/pigeonholeio/pigeonhole-cli/common"
+	"github.com/pigeonholeio/pigeonhole-cli/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -33,15 +32,53 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.DisplayHelp(cmd, args)
+		utils.DisplayHelp(cmd, args)
 
+	},
+}
+
+// resetCmd represents the reset command
+// var MeResetCmd = &cobra.Command{
+// 	Use:   "roll-shortcode",
+// 	Short: "A command to role your shortcode id",
+// 	Long: `A longer description that spans multiple lines and likely contains examples
+// and usage of using your command. For example:
+
+// Cobra is a CLI library for Go that empowers applications.
+// This application is a tool to generate the needed files
+// to quickly create a Cobra application.`,
+// 	Run: func(cmd *cobra.Command, args []string) {
+// 		fmt.Printf("Rolling your short code...")
+// 		// time.Sleep(3 * time.Second)
+// 		req, _ := PigeonHoleClient.PostUserMeRotateshortcodeWithResponse(GlobalCtx)
+// 		req, _ := PigeonHoleClient.postuserme(GlobalCtx)
+// 		if req.StatusCode() == 204 {
+// 			fmt.Println("done!")
+// 		} else {
+// 			fmt.Println("failed")
+// 			return
+// 		}
+
+// 	},
+// }
+
+// detailsCmd represents the details command
+var MeShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "A brief overview of your details",
+	Long:  `A brief overview of your details containging email, keys, id and shortcode`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Context()
+		me, _ := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
+		// spew.Dump(me.JSON200)
+		utils.OutputData(me.JSON200)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(meCmd)
-	meCmd.AddCommand(cmd.MeShowCmd)
-	meCmd.AddCommand(cmd.MeResetCmd)
+	meCmd.AddCommand(MeShowCmd)
+	// meCmd.AddCommand(MeResetCmd)
 
 	// Here you will define your flags and configuration settings.
 

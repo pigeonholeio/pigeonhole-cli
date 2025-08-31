@@ -1,9 +1,8 @@
-package common
+package utils
 
 import (
 	"archive/tar"
 	"compress/gzip"
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -15,9 +14,11 @@ import (
 	"strings"
 
 	"github.com/Pallinder/go-randomdata"
-	"github.com/drewstinnett/go-output-format/formatter"
+
+	gout "github.com/drewstinnett/gout/v2"
+	"github.com/drewstinnett/gout/v2/formats"
 	jwt "github.com/golang-jwt/jwt/v5"
-	"github.com/pigeonholeio/pigeonhole-cli/sdk"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,15 +42,12 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // 	return *client
 // }
 
-func NewIdPClient(token string, timeout int) (sdk.ClientWithResponses, context.Context) {
-	client, ctx := sdk.PigeonholeClient(viper.GetString("api.url"), token, timeout)
-	return client, ctx
-}
-func getOutputFormatter() *formatter.Config {
-	return &formatter.Config{
-		Format: viper.GetString("output.format"),
-	}
-}
+// func getOutputFormatter() *formatter.Config {
+
+//		return &formatter.Config{
+//			Format: viper.GetString("output.format"),
+//		}
+//	}
 func ArrOutputData(data *[]interface{}) {
 	for i, s := range *data {
 		logrus.Debug(i)
@@ -58,14 +56,17 @@ func ArrOutputData(data *[]interface{}) {
 }
 
 func OutputData(data interface{}) {
-	x := getOutputFormatter()
-	out, _ := formatter.OutputData(data, x)
-	fmt.Println(string(out))
-}
-
-func NewPigeonHoleClient(timeout int) (sdk.ClientWithResponses, context.Context) {
-	client, ctx := sdk.PigeonholeClient(viper.GetString("api.url"), viper.GetString("auth.token"), timeout)
-	return client, ctx
+	// x := getOutputFormatter()
+	g := gout.New()
+	// spew.Dump(oidcProviders.JSON200.OidcProviders)
+	for formatN, formatG := range formats.Formats {
+		fmt.Println(formatN, formatG)
+		g.SetFormatter(formatG())
+		g.MustPrint(data)
+	}
+	// w.SetFormatter()
+	// out, _ := w.OutputData(data, x)
+	// fmt.Println(string(out))
 }
 
 func decodeJWT(tokenStr string) (map[string]interface{}, error) {
@@ -108,6 +109,19 @@ func DecodeFromBase64(input string) (string, error) {
 	return string(decodedBytes), nil
 }
 
+// func GeneralErrorHandler(err Error) {
+// 	switch resp.StatusCode() {
+// 	case 400:
+// 		logrus.Debugln(resp.JSON400.Message)
+// 	case 401:
+// 		logrus.Debugln(resp.JSON401.Message)
+// 	case 403:
+// 		logrus.Debugln(resp.JSON403.Message)
+// 	case 500:
+// 		logrus.Debugln(resp.JSON500.Message)
+
+//		}
+//	}
 func GenerateCodeWord(numWords int) string {
 	words := make([]string, numWords+1)
 	// words[0] = randomdata.Adjective()
@@ -118,9 +132,6 @@ func GenerateCodeWord(numWords int) string {
 
 	return strings.Join(words, "-")
 }
-
-var GlobalPigeonHoleClient sdk.ClientWithResponses
-var GlobalCtx context.Context
 
 func SecureDelete(filePath string) error {
 	// Open the file
@@ -209,7 +220,7 @@ func CompressPath(src string, buf io.Writer) error {
 			}
 
 			// must provide real name
-			// (see https://golang.org/src/archive/tar/common.go?#L626)
+			// (see https://golang.org/src/archive/tar/utils.go?#L626)
 			header.Name = filepath.ToSlash(file)
 
 			// write header
@@ -317,72 +328,4 @@ func KeysExist() bool {
 		return true
 	}
 	return false
-}
-
-func GenerateKeys() error {
-	fmt.Print("Creating and pushing your new GPG key...")
-
-	if viper.GetString("auth.token") == "" {
-		return fmt.Errorf("not logged in")
-	}
-
-	claims, _ := DecodePigeonHoleJWT()
-	for k, v := range claims {
-		logrus.Debugf("JWT claim: %s = %v", k, v)
-	}
-
-	pub, priv, _, thumbprint := CreateGPGKey(
-		claims["name"].(string),
-		claims["preferred_username"].(string),
-	)
-
-	b64Priv := EncodeToBase64(priv)
-	b64Pub := EncodeToBase64(pub)
-
-	viper.Set("key.latest.public", b64Pub)
-	viper.Set("key.latest.private", b64Priv)
-
-	only := true
-	ref, _ := os.Hostname()
-
-	req := sdk.NewKey{
-		KeyData:    &b64Pub,
-		Reference:  &ref,
-		Only:       &only,
-		Force:      &only,
-		Thumbprint: &thumbprint,
-	}
-
-	// GlobalPigeonHoleClient, GlobalCtx = NewPigeonHoleClient()
-	resp, err := GlobalPigeonHoleClient.UserMeKeyPostWithResponse(GlobalCtx, req)
-	if err != nil {
-		return err
-	}
-
-	logrus.Debugf("Pigeonhole API returned status: %d", resp.StatusCode())
-
-	if resp.StatusCode() == 201 {
-		if err := viper.WriteConfig(); err != nil {
-			return fmt.Errorf("failed to write config: %w", err)
-		}
-		fmt.Println("done!")
-		return nil
-	}
-
-	// Map status codes to messages using a single switch
-	var msg string
-	switch resp.StatusCode() {
-	case 400:
-		msg = resp.JSON400.Message
-	case 401:
-		msg = resp.JSON401.Message
-	case 403:
-		msg = resp.JSON403.Message
-	case 500:
-		msg = resp.JSON500.Message
-	default:
-		msg = "unexpected status code"
-	}
-
-	return fmt.Errorf("failed: %s (%d)", msg, resp.StatusCode())
 }

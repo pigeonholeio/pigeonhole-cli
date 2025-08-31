@@ -1,9 +1,7 @@
-package common
+package utils
 
 import (
 	"bytes"
-	"encoding/base64"
-	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -12,21 +10,20 @@ import (
 
 	"os"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
-	"github.com/pigeonholeio/pigeonhole-cli/sdk"
+	crypto "github.com/ProtonMail/gopenpgp/v2/crypto"
 	"github.com/spf13/viper"
 )
 
-func CreateGPGKey(name string, email string) (string, string, crypto.Key, string) {
+func CreateGPGKeyPair(name string, email string) (publicKey string, privateKey string, rsaKey crypto.Key, fingerprint string) {
 	logrus.Debugln("Attempting to generate RSA secret")
-	rsaKey, _ := crypto.GenerateKey(name, email, "rsa", 4096)
+	key, _ := crypto.GenerateKey(name, email, "x25519", 0)
+	// crypto.GenerateKey((name,email))
 	logrus.Debugln("Retrieving public key Armor with custom headers")
-	pubKey, _ := rsaKey.GetArmoredPublicKeyWithCustomHeaders("https://pigeono.io", "PigeonHole v1.0")
+	pubKey, _ := key.GetArmoredPublicKeyWithCustomHeaders("https://pigeono.io", "PigeonHole v1.0")
 	logrus.Debugln("Retrieving private key Armor with custom headers")
-	privKey, _ := rsaKey.ArmorWithCustomHeaders("https://pigeono.io", "PigeonHole v1.0")
+	privKey, _ := key.ArmorWithCustomHeaders("https://pigeono.io", "PigeonHole v1.0")
 
-	return pubKey, privKey, *rsaKey, rsaKey.GetFingerprint()
-
+	return pubKey, privKey, *key, rsaKey.GetFingerprint()
 }
 
 func EncryptFile(filePath string, armoredPubKeys []string) (encryptedFilePath string, err error) {
@@ -188,24 +185,3 @@ func DecryptBytes(input []byte, destinationPath string) (decryptedFilePath strin
 // 	// fmt.Println("Decrypted file: ", tmpFile.Name())
 // 	return tmpFile.Name()
 // }
-
-func GetUserGPGArmoredPubKeysFromIdSlice(recipients []string) ([]string, error) {
-	params := sdk.UserGetParams{}
-	params.Id = &recipients
-	users, _ := GlobalPigeonHoleClient.UserGetWithResponse(GlobalCtx, &params)
-	var keys []string
-	for _, x := range *users.JSON200 {
-		if len(*x.Keys) > 0 {
-			for _, k := range *x.Keys {
-				decoded, _ := base64.StdEncoding.DecodeString(*k.KeyData)
-				keys = append(keys, string(decoded))
-			}
-
-		}
-	}
-	if len(keys) > 0 {
-		return keys, nil
-	} else {
-		return nil, fmt.Errorf("No keys for recipients")
-	}
-}

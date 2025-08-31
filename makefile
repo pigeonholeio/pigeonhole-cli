@@ -1,7 +1,5 @@
-OPENAPI_PATH := "../pigeonhole-api/packages/api/src/pigeonhole/openapi.yaml"
-SDK_PATH := "./sdk"
-
-
+OPENAPI_PATH := "../server/src/docs/swagger.yaml"
+SDK_PATH := /Users/rhysevans/git/pigeonhole/api
 
 ## help: Show this help
 help:
@@ -9,13 +7,13 @@ help:
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 generate-openapi-sdk:
-	oapi-codegen -generate client -package sdk -o ${SDK_PATH}/client.gen.go ${OPENAPI_PATH}
-	oapi-codegen -generate types -package sdk -o ${SDK_PATH}/types.gen.go ${OPENAPI_PATH}
-	cd ./src && go build && rm ./pigeonhole-cli
+	oapi-codegen -generate client -package sdk -o ${SDK_PATH}/client/client.gen.go ${OPENAPI_PATH}
+	oapi-codegen -generate types -package sdk -o ${SDK_PATH}/types/types.gen.go ${OPENAPI_PATH}
+
 
 
 secret-drop-file:
-	go run main.go secret drop -r rhys@planesailing.io -f ~/Downloads/x.mp4#
+	go run main.go secret drop -r rhys@planesailing.io -f ~/Downloads/x.mp4
 
 bump-tag:
 	./bump-tag.sh
@@ -61,6 +59,7 @@ gen-files:
 
 push-workflow:
 	git pull
-	git add .circleci
+	echo "#" >> src/trigger.yml
+	git add .circleci src
 	git commit -m'trigger workflow'
 	git push
