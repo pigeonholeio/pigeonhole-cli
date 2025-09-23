@@ -16,7 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/pigeonholeio/pigeonhole-cli/utils"
+	"github.com/pigeonholeio/common/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -70,8 +70,7 @@ var MeShowCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Context()
 		me, _ := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
-		// spew.Dump(me.JSON200)
-		utils.OutputData(me.JSON200)
+		utils.OutputData(me.JSON200.User)
 	},
 }
 

@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
-	"github.com/pigeonholeio/pigeonhole-cli/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -25,11 +25,13 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "pigeonhole",
-	Short: "Sending secrets securely.",
-	Long:  `This command will display the size of a directory with several different options.`,
+	Use:           "pigeonhole",
+	Short:         "Sending secrets securely.",
+	SilenceErrors: true,
+	Long:          `This command will display the size of a directory with several different options.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// InitConfig()
+
 		SetLogger()
 		GlobalCtx, ContextCancel = context.WithTimeout(context.Background(), 60*time.Second)
 		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig)
@@ -37,15 +39,6 @@ var rootCmd = &cobra.Command{
 			logrus.Debugln("skipping-pre-run for: ", cmd.CommandPath())
 			return
 		}
-		fmt.Println("Running pre-run for:", cmd.CommandPath())
-
-		// if cmd.Parent().Name() == "secret" || cmd.Use == "version" || (cmd.Parent().Name() != "key" && cmd.Use == "init") {
-		// 	return
-		// }
-
-		// context.WithTimeout(context.Background(), (time.Duration(5 * time.Second)))
-		// GlobalCtx = context.WithValue(GlobalCtx, "pigeonHoleClient", PigeonHoleClient)
-		// GlobalCtx = context.WithValue(GlobalCtx, "pigeonHoleConfig", PigeonHoleConfig)
 
 		resp, errx := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
 
@@ -53,21 +46,29 @@ var rootCmd = &cobra.Command{
 			logrus.Debug(errx)
 			if errors.Is(errx, context.DeadlineExceeded) {
 				fmt.Printf("❌ HTTP request timed out after %d seconds\n", timeoutSec)
+				os.Exit(0)
+
 			} else {
-				fmt.Println("☠️ Something went wrong - Failed to connect to the Pigeonhole API")
+				fmt.Println("☠️ Can't reach the PigeonHole servers")
+				os.Exit(0)
+
 			}
-			os.Exit(1)
 		}
 		if resp.StatusCode() == http.StatusForbidden {
-			fmt.Println("🛡️ Invalid Token (Forbidden) - Try signing back in using `pigeonhole auth`")
-			os.Exit(1)
+			logrus.Debugf("Message received from server: %s", *resp.JSON403.Message)
+			fmt.Println("🛡️ Invalid Token (Forbidden) - Try signing back in using `pigeonhole auth --help`")
+		} else if resp.StatusCode() == http.StatusBadRequest {
+			logrus.Debugf("Message received from server: %s", *resp.JSON400.Message)
+			fmt.Println("🛡️ Invalid Token (Bad Request) - Try signing back in using `pigeonhole auth --help`")
 		} else if resp.StatusCode() == http.StatusUnauthorized {
-			fmt.Println("🛡️ Invalid Token (Unauthorized) - Try signing back in using `pigeonhole auth`")
-			os.Exit(1)
+			logrus.Debugf("Message received from server: %s", *resp.JSON401.Message)
+			fmt.Println("🛡️ Invalid Token (Unauthorized) - Try signing back in using `pigeonhole auth --help`")
 		} else if resp.StatusCode() == http.StatusInternalServerError {
-			fmt.Println("The Pigeonhole server is misbehaving, Sorry, it'll be fixed soon!")
-			os.Exit(1)
+			logrus.Debugf("Message received from server: %s", *resp.JSON500.Message)
+			fmt.Println("🌭 The PigeonHole API is misbehaving. Grab a tea, it'll be fixed soon!")
 		}
+		logrus.Debugf("Found caller id: %s", *resp.JSON200.User.Id)
+
 		if utils.KeysExist() != true && viper.GetString("auth.token") != "" {
 			fmt.Println("WARNING: No keys exist yet! Set one with pigeonhole-cli keys init")
 		}
@@ -78,26 +79,29 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
+
 	cobra.CheckErr(rootCmd.Execute())
 
 }
 
 var verbose bool
 var cfgFile string
+var v *viper.Viper
 
 func init() {
-	// timeoutSec = 5
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.pigeonhole/config.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Display more verbose output in console output. (default: false)")
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
-
+	logrus.Debugf("Called InitConfig")
 	InitConfig()
 }
 
-func InitConfig() {
-	v := viper.New()
+var configPath, fullConfigPath, configName, configType string
 
+func InitConfig() {
+	v = viper.NewWithOptions(viper.KeyDelimiter("::"))
+	logrus.Debugf("Called InitConfig")
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)
 	} else {
@@ -105,26 +109,28 @@ func InitConfig() {
 		if err != nil {
 			logrus.Fatalf("could not determine home directory: %v", err)
 		}
-		v.AddConfigPath(fmt.Sprintf("%s/.pigeonhole", home))
-		v.SetConfigName("config")
-		v.SetConfigType("yaml")
+		configPath = fmt.Sprintf("%s/.pigeonhole", home)
+		configType = "yaml"
+		configName = "config"
+		fullConfigPath = fmt.Sprintf("%s/%s.%s", configPath, configName, configType)
+		v.AddConfigPath(configPath)
+		v.SetConfigName(configName)
+		v.SetConfigType(configType)
+		viper.Set("fullConfigPath", fullConfigPath)
 	}
 
 	// sensible defaults
-	v.SetDefault("api.url", "http://localhost:3000/v1")
-	v.SetDefault("log.level", "info")
+	v.SetDefault("api::url", "http://localhost:3000/v1")
+	v.SetDefault("log::level", "info")
 
-	// environment variables override
 	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {
-		logrus.Warnf("Could not read config file: %v", err)
+		logrus.Debugf("Could not read config file: %v", err)
 	}
-
 	if err := v.Unmarshal(&PigeonHoleConfig); err != nil {
 		logrus.Fatalf("Unable to decode into struct: %v", err)
 	}
-
 }
 
 func SetLogger() {

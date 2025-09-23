@@ -93,6 +93,7 @@ type ClientInterface interface {
 	PostAuthOidcHandlerGenericWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostAuthOidcHandlerGeneric(ctx context.Context, body PostAuthOidcHandlerGenericJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostAuthOidcCleverHandler(ctx context.Context, provider *OIDCProvider, idPToken *OIDCProviderToken, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostAuthOidcHandlerGenericJwtWithBody request with any body
 	PostAuthOidcHandlerGenericJwtWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -934,20 +935,28 @@ func NewGetUserRequest(server string, params *GetUserParams) (*http.Request, err
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if params.Id != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "id", runtime.ParamLocationQuery, *params.Id); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "ephemeralkeys", runtime.ParamLocationQuery, params.Ephemeralkeys); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
 				}
 			}
+		}
 
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "email", runtime.ParamLocationQuery, params.Email); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
@@ -1550,6 +1559,7 @@ type PostAuthOidcHandlerGenericResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1576,6 +1586,7 @@ type PostAuthOidcHandlerGenericJwtResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1602,6 +1613,7 @@ type PostAuthOidcHandlerGithubResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1628,6 +1640,7 @@ type GetAuthOidcProvidersResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1650,10 +1663,11 @@ func (r GetAuthOidcProvidersResponse) StatusCode() int {
 type DeleteSecretResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON204      *GeneralMessageResponse
+	JSON200      *GeneralMessageResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1680,6 +1694,7 @@ type GetSecretResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1702,10 +1717,12 @@ func (r GetSecretResponse) StatusCode() int {
 type PostSecretResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *CreateSecretResponse
+	JSON201      *GeneralMessageWithSecretEnvelopeResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
+	JSON406      *GeneralMessageResponse
 	JSON500      *GeneralMessage
 }
 
@@ -1728,10 +1745,11 @@ func (r PostSecretResponse) StatusCode() int {
 type DeleteSecretSecretIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON204      *GeneralMessageResponse
+	JSON200      *GeneralMessageResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1754,10 +1772,11 @@ func (r DeleteSecretSecretIdResponse) StatusCode() int {
 type GetSecretSecretIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Secret
+	JSON200      *GeneralMessageWithSecretResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1783,6 +1802,7 @@ type GetSecretSecretIdDownloadResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1805,10 +1825,11 @@ func (r GetSecretSecretIdDownloadResponse) StatusCode() int {
 type GetUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Users
+	JSON200      *GeneralMessageWithUsersResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1835,6 +1856,7 @@ type GetUserMeResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1861,6 +1883,7 @@ type GetUserMeKeyResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1887,6 +1910,7 @@ type PostUserMeKeyResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1909,9 +1933,11 @@ func (r PostUserMeKeyResponse) StatusCode() int {
 type GetUserMeKeyValidateThumbprintResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *GeneralMessageWithKeyResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1937,6 +1963,7 @@ type PostUserMeRotateShortcodeResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1963,6 +1990,7 @@ type GetUserUserIdResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -1989,6 +2017,7 @@ type GetUserUserIdKeyResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -2060,6 +2089,7 @@ type DeleteUserUserIdKeyKeyIdResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -2085,6 +2115,7 @@ type GetUserUserIdKeyKeyIdResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -2110,6 +2141,7 @@ type GetUserUserIdPublicResponse struct {
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
 	JSON500      *GeneralMessage
 }
 
@@ -2442,6 +2474,13 @@ func ParsePostAuthOidcHandlerGenericResponse(rsp *http.Response) (*PostAuthOidcH
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2495,6 +2534,13 @@ func ParsePostAuthOidcHandlerGenericJwtResponse(rsp *http.Response) (*PostAuthOi
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -2550,6 +2596,13 @@ func ParsePostAuthOidcHandlerGithubResponse(rsp *http.Response) (*PostAuthOidcHa
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2604,6 +2657,13 @@ func ParseGetAuthOidcProvidersResponse(rsp *http.Response) (*GetAuthOidcProvider
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2630,12 +2690,12 @@ func ParseDeleteSecretResponse(rsp *http.Response) (*DeleteSecretResponse, error
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 204:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GeneralMessageResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON204 = &dest
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest GeneralMessage
@@ -2657,6 +2717,13 @@ func ParseDeleteSecretResponse(rsp *http.Response) (*DeleteSecretResponse, error
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -2712,6 +2779,13 @@ func ParseGetSecretResponse(rsp *http.Response) (*GetSecretResponse, error) {
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2739,7 +2813,7 @@ func ParsePostSecretResponse(rsp *http.Response) (*PostSecretResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest CreateSecretResponse
+		var dest GeneralMessageWithSecretEnvelopeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2765,6 +2839,20 @@ func ParsePostSecretResponse(rsp *http.Response) (*PostSecretResponse, error) {
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 406:
+		var dest GeneralMessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON406 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -2792,12 +2880,12 @@ func ParseDeleteSecretSecretIdResponse(rsp *http.Response) (*DeleteSecretSecretI
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 204:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GeneralMessageResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON204 = &dest
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest GeneralMessage
@@ -2819,6 +2907,13 @@ func ParseDeleteSecretSecretIdResponse(rsp *http.Response) (*DeleteSecretSecretI
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -2847,7 +2942,7 @@ func ParseGetSecretSecretIdResponse(rsp *http.Response) (*GetSecretSecretIdRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Secret
+		var dest GeneralMessageWithSecretResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2873,6 +2968,13 @@ func ParseGetSecretSecretIdResponse(rsp *http.Response) (*GetSecretSecretIdRespo
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -2921,6 +3023,13 @@ func ParseGetSecretSecretIdDownloadResponse(rsp *http.Response) (*GetSecretSecre
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2948,7 +3057,7 @@ func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Users
+		var dest GeneralMessageWithUsersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2974,6 +3083,13 @@ func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -3029,6 +3145,13 @@ func ParseGetUserMeResponse(rsp *http.Response) (*GetUserMeResponse, error) {
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3082,6 +3205,13 @@ func ParseGetUserMeKeyResponse(rsp *http.Response) (*GetUserMeKeyResponse, error
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -3137,6 +3267,13 @@ func ParsePostUserMeKeyResponse(rsp *http.Response) (*PostUserMeKeyResponse, err
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3163,6 +3300,13 @@ func ParseGetUserMeKeyValidateThumbprintResponse(rsp *http.Response) (*GetUserMe
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GeneralMessageWithKeyResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3183,6 +3327,13 @@ func ParseGetUserMeKeyValidateThumbprintResponse(rsp *http.Response) (*GetUserMe
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -3230,6 +3381,13 @@ func ParsePostUserMeRotateShortcodeResponse(rsp *http.Response) (*PostUserMeRota
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -3285,6 +3443,13 @@ func ParseGetUserUserIdResponse(rsp *http.Response) (*GetUserUserIdResponse, err
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3338,6 +3503,13 @@ func ParseGetUserUserIdKeyResponse(rsp *http.Response) (*GetUserUserIdKeyRespons
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
@@ -3449,6 +3621,13 @@ func ParseDeleteUserUserIdKeyKeyIdResponse(rsp *http.Response) (*DeleteUserUserI
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3496,6 +3675,13 @@ func ParseGetUserUserIdKeyKeyIdResponse(rsp *http.Response) (*GetUserUserIdKeyKe
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3542,6 +3728,13 @@ func ParseGetUserUserIdPublicResponse(rsp *http.Response) (*GetUserUserIdPublicR
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest GeneralMessage

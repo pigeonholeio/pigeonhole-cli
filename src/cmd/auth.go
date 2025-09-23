@@ -17,11 +17,15 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 
+	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/auth"
+	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
-	"github.com/pigeonholeio/pigeonhole-cli/utils"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +48,7 @@ var authListCmd = &cobra.Command{
 		}
 		if len(*oidcProviders.JSON200.OidcProviders) > 0 {
 			defaultProvider := *oidcProviders.JSON200.Default
-			fmt.Println("List of available login providers (✅ is default)")
+			fmt.Println("Available identity providers (✅ is default):")
 
 			for index, provider := range *oidcProviders.JSON200.OidcProviders {
 				marker := ""
@@ -60,7 +64,7 @@ var authListCmd = &cobra.Command{
 
 			fmt.Printf("\nYou can log in using the default provider with;\n")
 			fmt.Printf("\n	pigeonhole auth login\n\n")
-			fmt.Printf("or override with;\n")
+			fmt.Printf("or with a specific provider;\n")
 			fmt.Printf("\n	pigeonhole auth login --provider %s\n\n", defaultProvider)
 		} else {
 			logrus.Debugln(oidcProviders.JSON200.Message)
@@ -99,6 +103,9 @@ Pigeonhole currently only supports Azure Active Directory.
 		"skip-pre-run": "true",
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// name := "Rhys E"
+		// email := "rhys@rhysevans.co.uk"
+
 		oidcProviders, err := PigeonHoleClient.GetAuthOidcProvidersWithResponse(GlobalCtx)
 		if err != nil {
 			logrus.Debugln(err.Error())
@@ -143,28 +150,106 @@ Pigeonhole currently only supports Azure Active Directory.
 		}
 		// PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx)
 		pigeonHoleTokenresp, err := PigeonHoleClient.PostAuthOidcCleverHandlerWithResponse(GlobalCtx, &foundProvider, &phTok)
+
 		if err != nil {
 			logrus.Debugln(err.Error())
-			fmt.Println("Error exchanging IdP token with PigeonHole")
+			fmt.Println("☠️  Error exchanging IdP token with PigeonHole")
 			return
 		}
-		logrus.Debugf("PigeonHole Access Token: %s", pigeonHoleTokenresp.JSON201.AccessToken)
-		// PigeonHoleClient.PostAuthOidcHandlerGeneric(GlobalCtx, phTok)
-		// if err != nil {
-		// 	logrus.Fatalf("Login failed: %v", err)
-		// }
-		// fmt.Println(idToken)
 
-		// if viper.GetString("key.latest.private") != "" {
-		// 	fmt.Print("Keys already configured - ")
-		// } else {
-		// 	fmt.Print("Keys not configured - ")
-		// 	// utils.CreateGPGKeyPair()
-		// 	// common.GenerateKeys()
-		// }
+		logrus.Debugf("PigeonHole Access Token Received: %s", pigeonHoleTokenresp.JSON201.AccessToken)
+		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
+		email, _ := PigeonHoleConfig.GetUserId()
+		name, _ := PigeonHoleConfig.GetUserName()
 
-		// fmt.Println("You are now logged in!")
-		// fmt.Println("Now try sending a secret via 'pigeonhole secret send -r recipient@domain.com -p ./myfile'")
+		if PigeonHoleConfig.Identity == nil {
+			logrus.Debugf("Identity is nil")
+			PigeonHoleConfig.Identity = make(map[string]*config.UserIdentity)
+		}
+
+		if PigeonHoleConfig.Identity[email] == nil || PigeonHoleConfig.Identity[email].GPGKey == nil || !PigeonHoleConfig.Identity[email].GPGKey.KeyExists() {
+			fmt.Printf("No GPG key pair found locally, generating keys for: %s (%s)\n", name, email)
+
+			if PigeonHoleConfig.Identity[email] == nil {
+				PigeonHoleConfig.Identity[email] = &config.UserIdentity{}
+			}
+			if PigeonHoleConfig.Identity[email].GPGKey == nil {
+				PigeonHoleConfig.Identity[email].GPGKey = &config.GPGPair{}
+			}
+
+			if err := PigeonHoleConfig.Identity[email].GPGKey.EnsureKeyPair(&name, &email); err != nil {
+				fmt.Println("failed to ensure keypair:", err)
+				return
+			}
+			falsex := false
+			reference, _ := os.Hostname()
+
+			keyPost := sdk.PostUserMeKeyJSONRequestBody{
+				Force:      &falsex,
+				KeyData:    PigeonHoleConfig.Identity[email].GPGKey.PublicKey,
+				Reference:  &reference,
+				Thumbprint: PigeonHoleConfig.Identity[email].GPGKey.Thumbprint,
+			}
+			resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, keyPost)
+			if err != nil {
+				logrus.Debugf(err.Error())
+				fmt.Printf("Could not save new GPG Key\n")
+			}
+			switch resp.StatusCode() {
+			case http.StatusCreated:
+				fmt.Println("New keys saved")
+			}
+
+		} else {
+			logrus.Debugf("local key already exists for: %s\n", email)
+		}
+
+		logrus.Debugf("Checking remote key exists for local key: %s\n\n", email)
+		keysResponse, err := PigeonHoleClient.GetUserMeKeyValidateThumbprintWithResponse(GlobalCtx, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+		if err != nil {
+			logrus.Debugf(err.Error())
+		}
+		if len(*keysResponse.JSON200.Keys) == 0 {
+			logrus.Debugf("Pushing public key with fingerprint: %s ", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+			uploadKeyPayload := sdk.PostUserMeKeyJSONRequestBody{}
+			uploadKeyPayload.KeyData = PigeonHoleConfig.Identity[email].GPGKey.PublicKey
+			d, _ := os.Hostname()
+			uploadKeyPayload.Reference = &d
+			uploadKeyPayload.Thumbprint = PigeonHoleConfig.Identity[email].GPGKey.Thumbprint
+			resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, uploadKeyPayload)
+			if err != nil {
+				logrus.Debugf(err.Error())
+				fmt.Printf("Failed to upload key to user %s with fingerprint: %s", email, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+				return
+			}
+			if resp.StatusCode() == http.StatusCreated {
+				fmt.Printf("Key uploaded successfully with thumbprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+			} else {
+				logrus.Debugf("Response code: %d", resp.StatusCode())
+				switch resp.StatusCode() {
+				case http.StatusCreated:
+					fmt.Printf("Key uploaded successfully with thumbprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+				case http.StatusBadRequest:
+					logrus.Debugln(*resp.JSON400.Message)
+				case http.StatusInternalServerError:
+					logrus.Debugln(*resp.JSON500.Message)
+				}
+				fmt.Println("Something went wrong")
+				return
+			}
+		}
+
+		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
+		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
+		err = PigeonHoleConfig.Save(v, &fullConfigPath)
+		if err != nil {
+			logrus.Debugf("config file not saved: %s", err.Error())
+			fmt.Println("Failed to write config file!")
+			return
+		}
+
+		fmt.Printf("\n🔐 Logged in as: %s!\n\n", email)
+		fmt.Printf("Now try sending a secret;\n\n	pigeonhole secret send -r recipient@domain.com -f ./myfile\n")
 	},
 }
 var DefaultOIDCProvider string

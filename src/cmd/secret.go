@@ -16,35 +16,27 @@ limitations under the License.
 package cmd
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"os"
 	"path/filepath"
-	"reflect"
-	"strings"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
-	"github.com/pigeonholeio/pigeonhole-cli/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // secretsCmd represents the secrets command
 var secretsCmd = &cobra.Command{
-	Use:     "secret",
+	Use: "secret",
+	Annotations: map[string]string{
+		"skip-pre-run": "true",
+	},
 	Aliases: []string{"secrets", "s"},
-	Short:   "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short:   "Manage your secrets",
+	Long:    `Manage your secrets`,
 	Run: func(cmd *cobra.Command, args []string) {
 		utils.DisplayHelp(cmd, args)
 		// fmt.Println("secrets called")
@@ -102,17 +94,30 @@ var SecretsListCmd = &cobra.Command{
 			s.Reference = &query
 		}
 		// f, _ := PigeonHoleClient.GetSecret()
-		f, _ := PigeonHoleClient.GetSecretWithResponse(GlobalCtx, &s)
+		f, err := PigeonHoleClient.GetSecretWithResponse(GlobalCtx, &s)
+		if err != nil {
+			logrus.Debugf(err.Error())
+			fmt.Println("Something went wrong with the PigeonHole API")
+		}
+		code := f.StatusCode()
 
-		if len(*f.JSON200.Secrets) > 0 {
-			utils.OutputData(f.JSON200.Secrets)
+		logrus.Debugf("PigeonHole return status: %d", code)
+
+		if *f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
+			logrus.Debugf("PigeonHole return message: %s", *f.JSON200.Message)
+
+			utils.OutputData(sdk.ToSecretViewSlice(*f.JSON200.Secrets))
+
 		} else if f.StatusCode() == 400 {
 			fmt.Printf("failed: %s\n", *f.JSON400.Message)
 		} else if f.StatusCode() == 401 {
 			fmt.Printf("failed: %s\n", *f.JSON401.Message)
 		} else if f.StatusCode() == 403 {
 			fmt.Printf("failed: %s\n", *f.JSON403.Message)
+		} else if f.StatusCode() == 404 {
+			fmt.Printf("failed: %s\n", *f.JSON404.Message)
 		} else if f.StatusCode() == 500 {
+			logrus.Debugf("PigeonHole return message: %s", *f.JSON500.Message)
 			fmt.Printf("failed: %s\n", *f.JSON500.Message)
 		} else {
 			fmt.Println("No secrets found")
@@ -145,7 +150,6 @@ var SecretsDropCmd = &cobra.Command{
 	},
 
 	Run: func(cmd *cobra.Command, args []string) {
-		filename, _ := cmd.Flags().GetString("filepath")
 
 		resolvedPath, err := filepath.Abs(filename)
 		if err != nil {
@@ -160,43 +164,37 @@ var SecretsDropCmd = &cobra.Command{
 			fmt.Printf("❌ No file or directory at: %s\n", resolvedPath)
 			return
 		}
+		reference := utils.GenerateCodeWord(2)
 
-		recipients, _ := cmd.Flags().GetStringSlice("recipient")
-
-		newSecretRequest := sdk.CreateSecret{
-			RecipientIds: recipients,
-			Reference:    utils.GenerateCodeWord(2),
+		newSecretRequest := sdk.CreateSecretEnvolopeOptions{ //PostSecretJSONRequestBody
+			RecipientIds:  recipients,
+			Reference:     reference,
+			Ephemeralkeys: &useEpheralKeys,
 		}
-		logrus.Debugln("Retrieving a secret envelope from PigeonHole")
 
-		fmt.Printf("📩 Retrieving a secret envolope from PigeonHole...")
-		s, err := PigeonHoleClient.PostSecretWithResponse(GlobalCtx, newSecretRequest)
+		fmt.Printf("📩 Requesting a Secret Envolope from PigeonHole...")
+
+		secretEnvolopeResponse, err := PigeonHoleClient.PostSecretWithResponse(GlobalCtx, newSecretRequest)
+
+		// spew.Dump(s)
 		if err != nil {
-			logrus.Debug(err.Error())
-			fmt.Println("Retrieving secret envelope failed! Add --verbose for debug info")
+			logrus.Debugln(err.Error())
+			fmt.Printf("failed!\n\nAdd --verbose for debug info\n")
+			return
 		} else {
 			fmt.Println("done!")
 		}
 
-		bodyBytes, _ := io.ReadAll(s.HTTPResponse.Body)
-		if s.StatusCode() == 400 {
-			logrus.Debugf("Debug info: %s\n", string(bodyBytes))
-			fmt.Printf("failed: %s\n", s.JSON400.Message)
-		} else if s.StatusCode() == 401 {
-			fmt.Printf("failed: %s\n", s.JSON401.Message)
-			logrus.Debugf("Debug info: %s\n", string(bodyBytes))
-		} else if s.StatusCode() == 403 {
-			fmt.Printf("failed: %s\n", s.JSON403.Message)
-			logrus.Debugf("Debug info: %s\n", string(bodyBytes))
-		} else if s.StatusCode() == 500 {
-			fmt.Printf("failed: %s\n", s.JSON500.Message)
-			logrus.Debugf("Debug info: %s\n", string(bodyBytes))
-		}
-		if s.StatusCode() == 201 {
+		if secretEnvolopeResponse.JSON201 != nil && secretEnvolopeResponse.StatusCode() == http.StatusCreated {
 			logrus.Debugln("Secret envelope received, let's post this secret")
-			viper.WriteConfig()
+
+			// viper.WriteConfig()
 			fmt.Printf("🔐 Encrypting secret...")
-			tarballFilePath, _ := os.CreateTemp(os.TempDir(), "pigeonhole")
+
+			logrus.Debugf("Creating tmp file for tar archive: ")
+			tarballFilePath, _ := os.CreateTemp(os.TempDir(), "pigeonhole-")
+			logrus.Debugln(tarballFilePath.Name())
+
 			cwd, _ := os.Getwd()
 			testFilePath, _ := os.Stat(filename)
 			if testFilePath.IsDir() {
@@ -207,183 +205,167 @@ var SecretsDropCmd = &cobra.Command{
 				logrus.Debug("Found a file, let's tar just the file")
 				parentDir := filepath.Dir(filename)
 				os.Chdir(parentDir)
+
+				logrus.Debugf("Compressing file: %s\n", tarballFilePath.Name())
 				utils.CompressPath(filepath.Base(filename), tarballFilePath)
 			}
 			filename = tarballFilePath.Name()
+
 			os.Chdir(cwd)
-			// user_pubs, _ := utils.GetUserGPGArmoredPubKeysFromIdSlice(recipients)
-			user_pubs, _ := sdk.GetUserGPGArmoredPubKeysFromIdSlice(GlobalCtx, &PigeonHoleClient, recipients)
+			logrus.Debugf("Retrieving public keys")
+			if 0 == 1 {
+				spew.Dump(secretEnvolopeResponse.JSON201.Users)
+
+			}
+			user_pubs, _ := sdk.GetUserGPGArmoredPubKeysFromIdSlice(&GlobalCtx, secretEnvolopeResponse.JSON201)
+
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+			if len(user_pubs) == 0 {
+				fmt.Printf("❌ - No public keys found for users.\n\nYou can use --use-ephemeral-keys (-e) to use an Ephemeral Key.\n\n")
+
+				fmt.Printf("	pigeonhole secret post -r <email> -f ./myfile -e\n\n")
+				fmt.Println("Visit https://pigeono.io/ephemeral-keys to find out more")
+				return
+			}
+			logrus.Debugf("Found %d keys", len(user_pubs))
+
 			filename, _ = utils.EncryptFile(filename, user_pubs)
 			fmt.Println("done!")
-			fmt.Printf("🕊️  Posting secret to your recipient...")
-			errx := uploadFile(*s.JSON201, filename)
+			// fmt.Printf("🕊️  Posting secret to your recipient...")
+
+			errx := sdk.UploadFile(*secretEnvolopeResponse.JSON201, filename)
 			if errx != nil {
-				fmt.Println(errx)
+				logrus.Debugln(errx.Error())
+				fmt.Println("Failed to upload secret!")
 			} else {
-				fmt.Println("done!")
-				fmt.Printf(fmt.Sprintf("\nSecret encrypted and posted successfully as %s!\n", *s.JSON201.S3Info.Fields.XAmzMetaReference))
+				// fmt.Println("done!")
+				fmt.Printf(fmt.Sprintf("🕊️  Secret encrypted and posted successfully as %s!\n", *secretEnvolopeResponse.JSON201.S3Info.Fields.XAmzMetaReference))
 
 			}
 			utils.ShredFile(filename)
 
+		} else if secretEnvolopeResponse.StatusCode() == http.StatusNotAcceptable {
+
+			// logrus.Debugf("Message from PigeonHole API: %s", *s.JSON204.Message)
+			logrus.Debugf("PigeonHole API message: %s", *secretEnvolopeResponse.JSON406.Message)
+			fmt.Printf("Some recipients are missing.\n\n")
+			fmt.Printf("Add --use-ephemeral-keys (-e) to use ephemeral GPG keys\n\n	pigeonhole secret send -r <email> -f ./myfile -e\n\n")
+			fmt.Printf("To find out more about ephemeral keys visit the website https://pigeono.io/keys/ephemeral-keys\n")
+		} else if secretEnvolopeResponse.StatusCode() == 400 {
+			fmt.Printf("failed: %s\n", *secretEnvolopeResponse.JSON400.Message)
+		} else if secretEnvolopeResponse.StatusCode() == 401 {
+			fmt.Printf("failed: %s\n", *secretEnvolopeResponse.JSON401.Message)
+		} else if secretEnvolopeResponse.StatusCode() == 403 {
+			fmt.Printf("failed: %s\n", *secretEnvolopeResponse.JSON403.Message)
+		} else if secretEnvolopeResponse.StatusCode() == 404 {
+			fmt.Printf("failed: %s\n", *secretEnvolopeResponse.JSON404.Message)
+		} else if secretEnvolopeResponse.StatusCode() == 500 {
+			logrus.Debugf("PigeonHole return message: %s", *secretEnvolopeResponse.JSON500.Message)
+			fmt.Printf("🌭 The PigeonHole API is misbehaving: %s\n", *secretEnvolopeResponse.JSON500.Message)
 		}
 
 	},
-}
-
-func uploadStdin(response sdk.CreateSecretResponse) error {
-	err := performUpload(os.Stdin, &response, *response.S3Info.Url)
-	if err != nil {
-		return fmt.Errorf("Oops! %s", err.Error())
-	}
-	return nil
-}
-
-func uploadFile(response sdk.CreateSecretResponse, filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	err = performUpload(file, &response, *response.S3Info.Url)
-	if err != nil {
-		return fmt.Errorf("Oops! %s", err.Error())
-	}
-	return nil
-}
-
-func performUpload(reader io.Reader, response *sdk.CreateSecretResponse, callURL string) error {
-	var buffer bytes.Buffer
-
-	mpWriter := multipart.NewWriter(&buffer)
-
-	// fmt.Println(*response.S3Info.Fields.Key)
-	if err := addFieldsToWriter(mpWriter, response); err != nil {
-		return err
-	}
-	part, err := mpWriter.CreatePart(textproto.MIMEHeader{
-		"Content-Disposition": []string{"form-data; name=\"file\"; filename=\"" + *response.S3Info.Fields.Key + "\""},
-		"Content-Type":        []string{"application/octet-stream"}, // Set the appropriate MIME type
-	})
-
-	if _, err = io.Copy(part, reader); err != nil {
-		panic(err)
-	}
-	mpWriter.Close()
-	logrus.Debugf("HTTP POST URL: %s", callURL)
-	request, err := http.NewRequest("POST", callURL, &buffer)
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", mpWriter.FormDataContentType())
-	client := &http.Client{}
-	responseHTTP, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	if responseHTTP.StatusCode == http.StatusBadRequest {
-		return fmt.Errorf("Secret rejected for exceeding your quota")
-		// fmt.Println("")
-	} else if responseHTTP.StatusCode != http.StatusNoContent {
-		bytes, _ := io.ReadAll(responseHTTP.Body)
-		fmt.Println(string(bytes))
-		return fmt.Errorf("Something went wrong with the file upload")
-	}
-	// else {
-	// 	fmt.Println(fmt.Sprintf("Secret encrypted and posted successfully as %s!", *response.S3Info.Fields.XAmzMetaReference))
-	// }
-	return nil
 }
 
 var SecretsDeleteCmd = &cobra.Command{
 	Use:     "delete",
-	Aliases: []string{"del", "rm"},
+	Aliases: []string{"del", "rm", "d"},
 	Short:   "Delete secrets you may no longer want or need",
 	Long:    `Delete secrets you may no longer want or need.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		all, _ := cmd.Flags().GetBool("all")
-		id, _ := cmd.Flags().GetString("id")
-		if id != "" && !all {
+		if secretQueryReference == "" && !deleteAllSecrets {
 			utils.DisplayHelp(cmd, args)
+			return
 		}
-		// var resp DeleteSecretSecretIdResponse
-		var statusCode int
 
-		if all {
-			resp, err := PigeonHoleClient.DeleteSecretWithResponse(GlobalCtx)
+		var resp *sdk.DeleteSecretResponse
+		var err error
+
+		if deleteAllSecrets {
+			resp, err = PigeonHoleClient.DeleteSecretWithResponse(GlobalCtx)
 			if err != nil {
 				logrus.Debugln(err.Error())
+				fmt.Println("Something went wrong deleting all secrets")
 				return
 			}
-			statusCode = resp.StatusCode()
+
+			switch resp.StatusCode() {
+			case http.StatusInternalServerError:
+				logrus.Debugln(*resp.JSON500.Message)
+				fmt.Println("Something went wrong deleting all secrets")
+			case http.StatusNotFound:
+				fmt.Println("No secrets found")
+			case http.StatusOK:
+				fmt.Println("All secrets deleted")
+			default:
+				fmt.Printf("Unhandled Exception with Status Code: %d\n", resp.StatusCode())
+			}
+
 		} else {
-			resp, err := PigeonHoleClient.DeleteSecretSecretIdWithResponse(GlobalCtx, id) // DeleteSecretWithResponse(GlobalCtx)
+			logrus.Debugf("Querying for secret: %s\n", secretQueryReference)
+			respx, err := PigeonHoleClient.DeleteSecretSecretIdWithResponse(GlobalCtx, secretQueryReference)
+
 			if err != nil {
 				logrus.Debugln(err.Error())
+				fmt.Printf("Error: Something went wrong deleting secret: %s\n", secretQueryReference)
 				return
 			}
-			statusCode = resp.StatusCode()
-		}
-		fmt.Println(statusCode)
+			switch respx.StatusCode() {
+			case http.StatusOK:
+				logrus.Debugln(*respx.JSON200.Message)
+				fmt.Printf("secret deleted for: %s\n", secretQueryReference)
 
-		if statusCode == http.StatusOK && all {
-			fmt.Println("All secrets deleted")
-		} else if statusCode == http.StatusOK {
-			fmt.Printf("Secret '%s' deleted", id)
-		} else if statusCode != http.StatusOK {
-			fmt.Println("Something went wrong")
-			logrus.Debugln("Something went wrong: %d", statusCode)
+			case http.StatusInternalServerError:
+				logrus.Debugln(*resp.JSON500.Message)
+				fmt.Printf("Something went wrong deleting secret: %s", secretQueryReference)
+			case http.StatusNotFound:
+				logrus.Debugln(*respx.JSON404.Message)
+				fmt.Printf("No secret found for: %s\n", secretQueryReference)
+			default:
+				fmt.Printf("Unhandled Exception with Status Code: %d\n", respx.StatusCode())
+			}
 
 		}
+
 	},
 }
 
-func addFieldsToWriter(writer *multipart.Writer, response *sdk.CreateSecretResponse) error {
-
-	fieldsValue := reflect.ValueOf(response.S3Info.Fields).Elem()
-	for i := 0; i < fieldsValue.NumField(); i++ {
-		field := fieldsValue.Field(i)
-
-		fieldName := strings.Replace(fieldsValue.Type().Field(i).Tag.Get("json"), ",omitempty", "", 1)
-
-		if field.Kind() == reflect.Ptr && !field.IsNil() {
-			fieldValue := field.Elem().Interface()
-			logrus.Debug(fmt.Sprintf("ADDING: %s with value %s", fieldName, fieldValue))
-			switch v := fieldValue.(type) {
-			case string:
-				if err := writer.WriteField(fieldName, v); err != nil {
-					return err
-				}
-			case []string:
-				for _, val := range v {
-					if err := writer.WriteField(fieldName, val); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
+var (
+	useEpheralKeys       bool
+	recipients           []string
+	filename             string
+	reference            string
+	deleteAllSecrets     bool
+	secretQueryReference string
+	downloadSecretPath   string
+)
 
 func init() {
 	rootCmd.AddCommand(secretsCmd)
-	secretsCmd.AddCommand(SecretsListCmd)
-	secretsCmd.AddCommand(SecretsDropCmd)
-	secretsCmd.AddCommand(SecretsDeleteCmd)
 	secretsCmd.AddCommand(SecretsCollectCmd)
-	SecretsCollectCmd.PersistentFlags().StringP("reference", "r", "", "The id or reference of the secret")
+	secretsCmd.AddCommand(SecretsDeleteCmd)
+	secretsCmd.AddCommand(SecretsDropCmd)
+	secretsCmd.AddCommand(SecretsListCmd)
+
+	SecretsCollectCmd.Flags().StringVarP(&downloadSecretPath, "filepath", "f", "", "The path where to download, decrypt and extract your secret")
+	SecretsCollectCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "The id or reference of the secret")
+	SecretsCollectCmd.MarkFlagRequired("filepath")
 	SecretsCollectCmd.MarkPersistentFlagRequired("reference")
-	SecretsCollectCmd.PersistentFlags().StringP("path", "p", "", "The path where to download, decrypt and extract your secret")
-	SecretsCollectCmd.MarkFlagRequired("path")
-	SecretsDeleteCmd.Flags().BoolP("all", "a", false, "Delete all secrets that you have sent/received")
-	SecretsListCmd.Flags().StringP("query", "q", "", "Query to find a secret")
-	SecretsDropCmd.PersistentFlags().StringSliceP("recipient", "r", []string{}, "Email addresses or shorthand codes of the recipients")
-	viper.BindPFlag("recipient", SecretsDropCmd.PersistentFlags().Lookup("recipient"))
-	SecretsDropCmd.PersistentFlags().StringP("filepath", "f", "", "A path to a file or folder to send")
-	SecretsDropCmd.Flags().StringP("name", "n", "", "If you want to override the encrypted secret code name for the secret drop")
+
+	SecretsDeleteCmd.Flags().BoolVarP(&deleteAllSecrets, "all", "a", false, "Delete all secrets that you have sent/received")
+	SecretsDeleteCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "The id or reference of the secret")
+
+	SecretsDropCmd.Flags().BoolVarP(&useEpheralKeys, "use-ephemeral-keys", "e", false, "manage the use of ephemeral keys (Default: false)")
+	SecretsDropCmd.Flags().StringSliceVarP(&recipients, "recipient", "r", nil, "Email addresses of the recipients (add multiple or separate with comma)")
+	SecretsDropCmd.Flags().StringVarP(&filename, "filepath", "f", "", "A path to a file or folder to send")
+	// SecretsDropCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "If you want to override the encrypted secret code name for the secret drop")
+	SecretsDropCmd.MarkFlagRequired("filepath")
+	SecretsDropCmd.MarkFlagRequired("recipient")
+	SecretsListCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "The id or reference of the secret")
+	// viper.BindPFlag("recipient", SecretsDropCmd.PersistentFlags().Lookup("recipient"))
 
 	// Here you will define your flags and configuration settings.
 

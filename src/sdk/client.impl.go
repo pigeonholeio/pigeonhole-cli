@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
+	"github.com/dustin/go-humanize"
+	"github.com/oapi-codegen/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 // func PigeonholeClient(cfg *config.PigeonHoleConfig) ClientWithResponses {
@@ -24,16 +26,54 @@ import (
 
 //		return *x
 //	}
-func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
-	// Create a bearer token provider
-	bearerTokenProvider, err := securityprovider.NewSecurityProviderBearerToken(cfg.API.AccessToken)
-	if err != nil {
-		logrus.Panicf("failed to create bearer token provider: %v", err)
-	}
 
+type HumanTime time.Time
+
+func (ht HumanTime) MarshalYAML() (interface{}, error) {
+	t := time.Time(ht)
+	// Emit a YAML timestamp node instead of a string
+	node := yaml.Node{
+		Kind: yaml.ScalarNode,
+
+		Tag:   "!!timestamp",
+		Value: t.Format("2006-01-02 15:04:05"),
+	}
+	return &node, nil
+}
+
+func ToSecretView(s Secret) SecretView {
+	size := humanize.Bytes(uint64(*s.Size))
+	return SecretView{
+		Reference: s.Reference,
+		Size:      &size,
+		Sent:      (*HumanTime)(s.SentAt),
+		Recipient: s.Recipient,
+		Sender:    s.Sender,
+		// SentAt:     HumanTime(*s.SentAt),
+		// UploadedAt: HumanTime(s.UploadedAt),
+	}
+}
+func ToSecretViewSlice(secrets []Secret) []SecretView {
+	views := make([]SecretView, len(secrets))
+	for i, s := range secrets {
+		views[i] = ToSecretView(s)
+	}
+	return views
+}
+
+// SecretView defines model for SecretView.
+type SecretView struct {
+	Reference *string    `json:"reference,omitempty"`
+	Sent      *HumanTime `json:"sent_at,omitempty"`
+	Recipient *string    `json:"recipient,omitempty"`
+	Sender    *string    `json:"sender,omitempty"`
+	Size      *string    `json:"size,omitempty"`
+}
+
+func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
 	// Set up transport with TLS 1.3 if HTTPS
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if strings.HasPrefix(cfg.API.Url, "https://") {
+	if strings.HasPrefix(*cfg.API.Url, "https://") {
 		transport.TLSClientConfig = &tls.Config{
 			MinVersion: tls.VersionTLS13,
 		}
@@ -44,45 +84,63 @@ func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
 		Transport: transport,
 		Timeout:   30 * time.Second, // default per-request timeout
 	}
+	reqEditor := func(ctxReq context.Context, req *http.Request) error {
+		logrus.Debugf("Making %s request to %s", req.Method, req.URL)
+		// req.Header.Set("X-Client", "pigeonhole-cli")
+		// req.Header.Set("X-Client-Version", "1.0.0")
+		req.Header.Set("User-Agent", "pigeonhole-cli/1.0")
+		return nil
+	}
 
-	// Initialize the SDK client
-	client, err := NewClientWithResponses(
-		cfg.API.Url,
-		WithHTTPClient(httpClient),
-		WithRequestEditorFn(func(ctxReq context.Context, req *http.Request) error {
+	if cfg != nil && cfg.API != nil && cfg.API.AccessToken != nil {
+		bearerTokenProvider, err := securityprovider.NewSecurityProviderBearerToken(*cfg.API.AccessToken)
+		if err != nil {
+			logrus.Fatalf("failed to create bearer token provider: %w", err)
+			return nil
+		}
+		reqEditor = func(ctxReq context.Context, req *http.Request) error {
 			logrus.Debugf("Making %s request to %s", req.Method, req.URL)
 			if err := bearerTokenProvider.Intercept(ctxReq, req); err != nil {
 				return err
 			}
-			req.Header.Set("X-Client", "pigeonhole-cli")
+			req.Header.Set("User-Agent", "pigeonhole-cli/1.0")
 			return nil
-		}),
+		}
+	}
+
+	client, err := NewClientWithResponses(
+		*cfg.API.Url,
+		WithHTTPClient(httpClient),
+		WithRequestEditorFn(reqEditor),
 	)
 	if err != nil {
-		logrus.Panicf("failed to create pigeonhole client: %v", err)
+		logrus.Fatalf("failed to create pigeonhole client: %w", err)
+		return nil
 	}
 	return client
+
+	// if err != nil {
+	// 	logrus.Panicf("failed to create pigeonhole client: %v", err)
+	// }
+	// return client
 }
 
-func GetUserGPGArmoredPubKeysFromIdSlice(ctx context.Context, pigeonholeClient *ClientWithResponses, recipients []string) ([]string, error) {
-	params := GetUserParams{}
-	params.Id = &recipients
-	users, _ := pigeonholeClient.GetUserWithResponse(ctx, &params)
+func GetUserGPGArmoredPubKeysFromIdSlice(ctx *context.Context, secretEnvelopeResponse *SecretEnvolopeResponse) ([]string, error) {
+	if *secretEnvelopeResponse.Users == nil {
+		return nil, fmt.Errorf("no users found on Secret Envolope")
+	}
 	var keys []string
-	for _, x := range *users.JSON200 {
-		if len(*x.Keys) > 0 {
+	for _, x := range *secretEnvelopeResponse.Users {
+		if x.Keys != nil && len(*x.Keys) > 0 {
 			for _, k := range *x.Keys {
 				decoded, _ := base64.StdEncoding.DecodeString(*k.KeyData)
 				keys = append(keys, string(decoded))
 			}
-
+		} else {
+			return nil, fmt.Errorf("aborting - no public key found for %s", *x.Email)
 		}
 	}
-	if len(keys) > 0 {
-		return keys, nil
-	} else {
-		return nil, fmt.Errorf("No keys for recipients")
-	}
+	return keys, nil
 }
 
 // func NewPostAuthOidcHandlerWithBodyRequest(contentType, provider *OIDCProvider, body io.Reader) (*http.Request, error) {

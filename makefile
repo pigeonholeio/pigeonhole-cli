@@ -45,7 +45,7 @@ test-install:
 	brew install pigeonhole-cli
 
 install-deps:
-	go install github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
+	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 	brew install goreleaser kubectl helm yq
 
 .PHONY: gen-files
@@ -63,3 +63,11 @@ push-workflow:
 	git add .circleci src
 	git commit -m'trigger workflow'
 	git push
+
+
+test-github:
+	curl -XPOST -d localhost:3000/v1/auth/oidc/handler/github
+
+update-go:
+	cd src && go get -u && go mod vendor
+

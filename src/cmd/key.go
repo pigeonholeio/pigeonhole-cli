@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
-	"github.com/pigeonholeio/pigeonhole-cli/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -49,18 +49,26 @@ pigeonhole key create
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print("Creating and pushing your new GPG key...")
-		claims, _ := utils.DecodePigeonHoleJWT()
-		pub, priv, _, _ := utils.CreateGPGKeyPair(claims["name"].(string), claims["preferred_username"].(string))
-
-		PigeonHoleConfig.GpgKey.PrivateKeyBase64 = utils.EncodeToBase64(priv)
-		PigeonHoleConfig.GpgKey.PublicKeyBase64 = utils.EncodeToBase64(pub)
+		// claims, _ := utils.DecodePigeonHoleJWT(PigeonHoleConfig.API.AccessToken)
+		// pub, priv, _, _ := utils.CreateGPGKeyPair(claims["name"].(string), claims["preferred_username"].(string))
+		email, err := PigeonHoleConfig.GetUserName()
+		identity := PigeonHoleConfig.Identity[email]
+		if identity.GPGKey.KeyExists() {
+			fmt.Println("No key found for email")
+		} else {
+			logrus.Debugf(identity.GPGKey.DecodedPublicKey())
+		}
+		return
+		// PigeonHoleConfig.GpgKeys[email]
+		// PigeonHoleConfig.GpgKeys.PrivateKeyBase64 = utils.EncodeToBase64(priv)
+		// PigeonHoleConfig.GpgKeys.PublicKeyBase64 = utils.EncodeToBase64(pub)
 
 		reference, _ := cmd.Flags().GetString("reference")
 		clear, _ := cmd.Flags().GetBool("clear")
 		force, _ := cmd.Flags().GetBool("force")
-
+		c := PigeonHoleConfig.Identity[email].GPGKey.PublicKey
 		x := sdk.NewKey{
-			KeyData: &PigeonHoleConfig.GpgKey.PublicKeyBase64,
+			KeyData: c,
 		}
 
 		if reference != "" {
@@ -118,7 +126,7 @@ to quickly create a Cobra application.`,
 		}
 		if x.StatusCode() == 200 {
 			if len(*x.JSON200.Keys) > 0 {
-				utils.OutputData(x.JSON200)
+				utils.OutputData(x.JSON200.Keys)
 			} else {
 				fmt.Printf("No keys found on the server!\nUse `pigeonhole-cli keys init` to a GPG key pair to use\n")
 			}

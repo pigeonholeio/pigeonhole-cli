@@ -13,32 +13,16 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
-// CreateSecret defines model for CreateSecret.
-type CreateSecret struct {
+// CreateSecretEnvolopeOptions defines model for CreateSecretEnvolopeOptions.
+type CreateSecretEnvolopeOptions struct {
+	// Ephemeralkeys A reference string for the secret.
+	Ephemeralkeys *bool `json:"ephemeralkeys,omitempty"`
+
 	// RecipientIds A list of recipient IDs.
 	RecipientIds []string `json:"recipient_ids"`
 
 	// Reference A reference string for the secret.
 	Reference string `json:"reference"`
-}
-
-// CreateSecretResponse defines model for CreateSecretResponse.
-type CreateSecretResponse struct {
-	S3Info *struct {
-		Fields *struct {
-			Key                  *string   `json:"key,omitempty"`
-			Policy               *string   `json:"policy,omitempty"`
-			XAmzAlgorithm        *string   `json:"x-amz-algorithm,omitempty"`
-			XAmzCredential       *string   `json:"x-amz-credential,omitempty"`
-			XAmzDate             *string   `json:"x-amz-date,omitempty"`
-			XAmzMetaRecipientIds *[]string `json:"x-amz-meta-recipient_ids,omitempty"`
-			XAmzMetaReference    *string   `json:"x-amz-meta-reference,omitempty"`
-			XAmzMetaSenderId     *string   `json:"x-amz-meta-sender_id,omitempty"`
-			XAmzSignature        *string   `json:"x-amz-signature,omitempty"`
-		} `json:"fields,omitempty"`
-		Url *string `json:"url,omitempty"`
-	} `json:"s3_info,omitempty"`
-	Users *[]User `json:"users,omitempty"`
 }
 
 // GeneralMessage defines model for GeneralMessage.
@@ -83,11 +67,30 @@ type OIDCProviderToken struct {
 
 // Secret defines model for Secret.
 type Secret struct {
-	Recipient *string `json:"recipient,omitempty"`
-	Reference *string `json:"reference,omitempty"`
-	Sender    *string `json:"sender,omitempty"`
-	SentAt    *string `json:"sent_at,omitempty"`
-	Size      *string `json:"size,omitempty"`
+	Recipient *string    `json:"recipient,omitempty"`
+	Reference *string    `json:"reference,omitempty"`
+	Sender    *string    `json:"sender,omitempty"`
+	SentAt    *time.Time `json:"sent_at,omitempty"`
+	Size      *int64     `json:"size,omitempty"`
+}
+
+// SecretEnvolopeResponse defines model for SecretEnvolopeResponse.
+type SecretEnvolopeResponse struct {
+	S3Info *struct {
+		Fields *struct {
+			Key                  *string   `json:"key,omitempty"`
+			Policy               *string   `json:"policy,omitempty"`
+			XAmzAlgorithm        *string   `json:"x-amz-algorithm,omitempty"`
+			XAmzCredential       *string   `json:"x-amz-credential,omitempty"`
+			XAmzDate             *string   `json:"x-amz-date,omitempty"`
+			XAmzMetaRecipientIds *[]string `json:"x-amz-meta-recipient_ids,omitempty"`
+			XAmzMetaReference    *string   `json:"x-amz-meta-reference,omitempty"`
+			XAmzMetaSenderId     *string   `json:"x-amz-meta-sender_id,omitempty"`
+			XAmzSignature        *string   `json:"x-amz-signature,omitempty"`
+		} `json:"fields,omitempty"`
+		Url *string `json:"url,omitempty"`
+	} `json:"s3_info,omitempty"`
+	Users *[]User `json:"users,omitempty"`
 }
 
 // Token A JWT token created by PigeonHole after the IdP ID Token has been excha
@@ -107,6 +110,13 @@ type User struct {
 // GeneralMessageResponse defines model for GeneralMessageResponse.
 type GeneralMessageResponse = GeneralMessage
 
+// GeneralMessageWithKeyResponse defines model for GeneralMessageWithKeyResponse.
+type GeneralMessageWithKeyResponse struct {
+	Code    *int    `json:"code"`
+	Keys    *[]Key  `json:"keys,omitempty"`
+	Message *string `json:"message"`
+}
+
 // GeneralMessageWithKeysResponse defines model for GeneralMessageWithKeysResponse.
 type GeneralMessageWithKeysResponse struct {
 	Code    *int    `json:"code"`
@@ -120,6 +130,16 @@ type GeneralMessageWithOIDCProvidersResponse struct {
 	Default       *string                  `json:"default,omitempty"`
 	Message       *string                  `json:"message"`
 	OidcProviders *map[string]OIDCProvider `json:"oidcProviders,omitempty"`
+}
+
+// GeneralMessageWithSecretEnvelopeResponse defines model for GeneralMessageWithSecretEnvelopeResponse.
+type GeneralMessageWithSecretEnvelopeResponse = SecretEnvolopeResponse
+
+// GeneralMessageWithSecretResponse defines model for GeneralMessageWithSecretResponse.
+type GeneralMessageWithSecretResponse struct {
+	Code    *int    `json:"code"`
+	Message *string `json:"message"`
+	Secret  *Secret `json:"secret,omitempty"`
 }
 
 // GeneralMessageWithSecretsResponse defines model for GeneralMessageWithSecretsResponse.
@@ -144,11 +164,15 @@ type GeneralMessageWithUserResponse struct {
 	User    *User   `json:"user,omitempty"`
 }
 
+// GeneralMessageWithUsersResponse defines model for GeneralMessageWithUsersResponse.
+type GeneralMessageWithUsersResponse struct {
+	Code    *int    `json:"code"`
+	Message *string `json:"message"`
+	Users   *[]User `json:"users,omitempty"`
+}
+
 // Keys defines model for Keys.
 type Keys = []Key
-
-// Users defines model for Users.
-type Users = []User
 
 // GetSecretParams defines parameters for GetSecret.
 type GetSecretParams struct {
@@ -157,7 +181,8 @@ type GetSecretParams struct {
 
 // GetUserParams defines parameters for GetUser.
 type GetUserParams struct {
-	Id *[]string `form:"id,omitempty" json:"id,omitempty"`
+	Ephemeralkeys bool                  `form:"ephemeralkeys" json:"ephemeralkeys"`
+	Email         []openapi_types.Email `form:"email" json:"email"`
 }
 
 // PostAuthOidcHandlerGenericJSONRequestBody defines body for PostAuthOidcHandlerGeneric for application/json ContentType.
@@ -170,7 +195,7 @@ type PostAuthOidcHandlerGenericJwtJSONRequestBody = OIDCProviderToken
 type PostAuthOidcHandlerGithubJSONRequestBody = OIDCProviderToken
 
 // PostSecretJSONRequestBody defines body for PostSecret for application/json ContentType.
-type PostSecretJSONRequestBody = CreateSecret
+type PostSecretJSONRequestBody = CreateSecretEnvolopeOptions
 
 // PostUserMeKeyJSONRequestBody defines body for PostUserMeKey for application/json ContentType.
 type PostUserMeKeyJSONRequestBody = NewKey

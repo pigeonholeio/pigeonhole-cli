@@ -1,0 +1,13 @@
+diff --git a/src/sdk/client.gen.go b/src/sdk/client.gen.go
+index 111e75b..42203bc 100644
+--- a/src/sdk/client.gen.go
++++ b/src/sdk/client.gen.go
+@@ -99,6 +99,8 @@ type ClientInterface interface {
+ 
+ 	PostAuthOidcHandlerGenericJwt(ctx context.Context, body PostAuthOidcHandlerGenericJwtJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+ 
++	PostAuthOidcCleverHandler(ctx context.Context, provider *OIDCProvider, idPToken *OIDCProviderToken, reqEditors ...RequestEditorFn) (*http.Response, error)
++
+ 	// PostAuthOidcHandlerGithubWithBody request with any body
+ 	PostAuthOidcHandlerGithubWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+ 

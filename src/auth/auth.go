@@ -15,6 +15,7 @@ func AuthenticateWithDeviceCode(ctx context.Context, clientId string, provider *
 	logrus.Debugf("Using following provider token url: %s\n", *provider.TokenUrl)
 	logrus.Debugf("Using following provider device url: %s\n", *provider.DeviceAuthURL)
 	logrus.Debugf("Using following provider client id: %s\n", *provider.ClientID)
+	logrus.Debugf("Using following provider scopes: %s\n", *provider.Scopes)
 
 	conf := &oauth2.Config{
 		ClientID: clientId,
