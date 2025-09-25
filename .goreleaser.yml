@@ -33,6 +33,16 @@ builds:
 
 snapshot:
   name_template: '{{ .Version }}-{{.ShortCommit}}'
+signs:
+  - #
+    # ID of the sign config, must be unique.
+    #
+    # Default: 'default'.
+    # id: foo
+    signature: "${artifact}_sig"
+    artifacts: all
+
+
 
 brews:
   - name: pigeonhole-cli
