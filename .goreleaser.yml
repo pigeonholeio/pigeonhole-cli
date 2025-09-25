@@ -24,10 +24,10 @@ builds:
     gobinary: go
     command: build
     ldflags:
-      - -X github.com/pigeonholeio/pigeonhole-cli/src/cmd.Version={{.Version}}
-      - -X github.com/pigeonholeio/pigeonhole-cli/src/cmd.CommitHash={{.ShortCommit}}
-      - -X github.com/pigeonholeio/pigeonhole-cli/src/cmd.BuildTime={{.Date}}
-      - -X github.com/pigeonholeio/pigeonhole-cli/src/cmd.BuiltBy=goreleaser
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.Version={{.Version}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.CommitHash={{.ShortCommit}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.BuildTime={{.Date}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.BuiltBy=goreleaser
     env:
       - CGO_ENABLED=0
 
