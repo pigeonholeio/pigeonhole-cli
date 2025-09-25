@@ -39,8 +39,14 @@ signs:
     #
     # Default: 'default'.
     # id: foo
-    cmd: gpg2
     signature: "${artifact}_sig"
+    args:
+    - -u
+    - gpg@pigeono.io
+    - --output
+    - ${signature}
+    - --detach-sign
+    - ${artifact}
     artifacts: all
 
 
