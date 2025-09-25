@@ -9,12 +9,13 @@ import (
 	"net/textproto"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 )
 
-func UploadStdin(response SecretEnvolopeResponse) error {
+func UploadStdin(response SecretEnvelopeResponse) error {
 	err := performUpload(os.Stdin, &response, *response.S3Info.Url)
 	if err != nil {
 		return fmt.Errorf("Oops! %s", err.Error())
@@ -22,7 +23,7 @@ func UploadStdin(response SecretEnvolopeResponse) error {
 	return nil
 }
 
-func UploadFile(response SecretEnvolopeResponse, filePath string) error {
+func UploadFile(response SecretEnvelopeResponse, filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -37,7 +38,7 @@ func UploadFile(response SecretEnvolopeResponse, filePath string) error {
 	return nil
 }
 
-func addFieldsToWriter(writer *multipart.Writer, response *SecretEnvolopeResponse) error {
+func addFieldsToWriter(writer *multipart.Writer, response *SecretEnvelopeResponse) error {
 
 	fieldsValue := reflect.ValueOf(response.S3Info.Fields).Elem()
 	for i := 0; i < fieldsValue.NumField(); i++ {
@@ -64,14 +65,14 @@ func addFieldsToWriter(writer *multipart.Writer, response *SecretEnvolopeRespons
 	}
 	return nil
 }
-func performPutUpload(reader io.Reader, envolope SecretEnvolopeResponse) error {
+func performPutUpload(reader io.Reader, envelope SecretEnvelopeResponse) error {
 	var buf bytes.Buffer
 	n, err := io.Copy(&buf, reader)
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequest("PUT", *envolope.S3Info.Url, &buf)
+	req, err := http.NewRequest("PUT", *envelope.S3Info.Url, &buf)
 	if err != nil {
 		return err
 	}
@@ -79,11 +80,13 @@ func performPutUpload(reader io.Reader, envolope SecretEnvolopeResponse) error {
 	// Set ContentLength correctly
 	req.ContentLength = n
 
-	req.Header.Set("x-amz-meta-recipient_ids", strings.Join(*envolope.S3Info.Fields.XAmzMetaRecipientIds, ","))
-	req.Header.Set("x-amz-meta-reference", *envolope.S3Info.Fields.XAmzMetaReference)
-	req.Header.Set("x-amz-meta-sender_id", *envolope.S3Info.Fields.XAmzMetaSenderId)
+	req.Header.Set("x-amz-meta-recipient_ids", strings.Join(*envelope.S3Info.Fields.XAmzMetaRecipientIds, ","))
+	req.Header.Set("x-amz-meta-reference", *envelope.S3Info.Fields.XAmzMetaReference)
+	req.Header.Set("x-amz-meta-sender_id", *envelope.S3Info.Fields.XAmzMetaSenderId)
+	req.Header.Set("x-amz-meta-onetime", strconv.FormatBool(*envelope.Onetime))
+	req.Header.Set("x-amz-meta-expiration", strconv.FormatInt(envelope.Expiration.Unix(), 10))
 
-	// req.Header.Set("X-Amz-Meta-reference", *envolope.S3Info.Fields.XAmzMetaReference)
+	// req.Header.Set("X-Amz-Meta-reference", *envelope.S3Info.Fields.XAmzMetaReference)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -98,17 +101,17 @@ func performPutUpload(reader io.Reader, envolope SecretEnvolopeResponse) error {
 		return fmt.Errorf("upload failed: %s", string(body))
 	}
 
-	// req, err := http.NewRequest("PUT", *envolope.S3Info.Url, reader)
-	// spew.Dump(*envolope.S3Info.Url)
+	// req, err := http.NewRequest("PUT", *envelope.S3Info.Url, reader)
+	// spew.Dump(*envelope.S3Info.Url)
 	// if err != nil {
 	// 	return err
 	// }
 
-	// // ids := *envolope.S3Info.Fields.XAmzMetaRecipientIds
+	// // ids := *envelope.S3Info.Fields.XAmzMetaRecipientIds
 	// // req.Header.Set("Content-Type", "application/octet-stream")
 	// // req.Header.Set("x-amz-meta-recipient_ids", strings.Join(ids, ","))
-	// // req.Header.Set("x-amz-meta-reference", *envolope.S3Info.Fields.XAmzMetaReference)
-	// // req.Header.Set("x-amz-meta-sender_id", *envolope.S3Info.Fields.XAmzMetaSenderId)
+	// // req.Header.Set("x-amz-meta-reference", *envelope.S3Info.Fields.XAmzMetaReference)
+	// // req.Header.Set("x-amz-meta-sender_id", *envelope.S3Info.Fields.XAmzMetaSenderId)
 	// req.Header.Set("Content-Type", "application/octet-stream")
 	// var buf bytes.Buffer
 	// size, _ := io.Copy(&buf, reader)
@@ -130,7 +133,7 @@ func performPutUpload(reader io.Reader, envolope SecretEnvolopeResponse) error {
 	return nil
 }
 
-func performUpload(reader io.Reader, response *SecretEnvolopeResponse, callURL string) error {
+func performUpload(reader io.Reader, response *SecretEnvelopeResponse, callURL string) error {
 	var buffer bytes.Buffer
 
 	mpWriter := multipart.NewWriter(&buffer)

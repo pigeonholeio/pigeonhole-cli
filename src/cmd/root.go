@@ -67,6 +67,7 @@ var rootCmd = &cobra.Command{
 			logrus.Debugf("Message received from server: %s", *resp.JSON500.Message)
 			fmt.Println("🌭 The PigeonHole API is misbehaving. Grab a tea, it'll be fixed soon!")
 		}
+		return
 		logrus.Debugf("Found caller id: %s", *resp.JSON200.User.Id)
 
 		if utils.KeysExist() != true && viper.GetString("auth.token") != "" {

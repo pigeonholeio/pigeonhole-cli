@@ -13,10 +13,12 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
-// CreateSecretEnvolopeOptions defines model for CreateSecretEnvolopeOptions.
-type CreateSecretEnvolopeOptions struct {
+// CreateSecretEnvelopeOptions defines model for CreateSecretEnvelopeOptions.
+type CreateSecretEnvelopeOptions struct {
 	// Ephemeralkeys A reference string for the secret.
-	Ephemeralkeys *bool `json:"ephemeralkeys,omitempty"`
+	Ephemeralkeys *bool      `json:"ephemeralkeys,omitempty"`
+	Expiration    *time.Time `json:"expiration,omitempty"`
+	Onetime       *bool      `json:"onetime,omitempty"`
 
 	// RecipientIds A list of recipient IDs.
 	RecipientIds []string `json:"recipient_ids"`
@@ -67,16 +69,20 @@ type OIDCProviderToken struct {
 
 // Secret defines model for Secret.
 type Secret struct {
-	Recipient *string    `json:"recipient,omitempty"`
-	Reference *string    `json:"reference,omitempty"`
-	Sender    *string    `json:"sender,omitempty"`
-	SentAt    *time.Time `json:"sent_at,omitempty"`
-	Size      *int64     `json:"size,omitempty"`
+	Expiration *time.Time `json:"expiration,omitempty"`
+	Onetime    *bool      `json:"onetime,omitempty"`
+	Recipient  *string    `json:"recipient,omitempty"`
+	Reference  *string    `json:"reference,omitempty"`
+	Sender     *string    `json:"sender,omitempty"`
+	SentAt     *time.Time `json:"sent_at,omitempty"`
+	Size       *int64     `json:"size,omitempty"`
 }
 
-// SecretEnvolopeResponse defines model for SecretEnvolopeResponse.
-type SecretEnvolopeResponse struct {
-	S3Info *struct {
+// SecretEnvelopeResponse defines model for SecretEnvelopeResponse.
+type SecretEnvelopeResponse struct {
+	Expiration *time.Time `json:"expiration,omitempty"`
+	Onetime    *bool      `json:"onetime,omitempty"`
+	S3Info     *struct {
 		Fields *struct {
 			Key                  *string   `json:"key,omitempty"`
 			Policy               *string   `json:"policy,omitempty"`
@@ -110,6 +116,14 @@ type User struct {
 // GeneralMessageResponse defines model for GeneralMessageResponse.
 type GeneralMessageResponse = GeneralMessage
 
+// GeneralMessageWithDownloadResponse defines model for GeneralMessageWithDownloadResponse.
+type GeneralMessageWithDownloadResponse struct {
+	Code            *int    `json:"code"`
+	DownloadUrl     *string `json:"downloadUrl,omitempty"`
+	Message         *string `json:"message"`
+	SecretReference *string `json:"secretReference,omitempty"`
+}
+
 // GeneralMessageWithKeyResponse defines model for GeneralMessageWithKeyResponse.
 type GeneralMessageWithKeyResponse struct {
 	Code    *int    `json:"code"`
@@ -133,7 +147,7 @@ type GeneralMessageWithOIDCProvidersResponse struct {
 }
 
 // GeneralMessageWithSecretEnvelopeResponse defines model for GeneralMessageWithSecretEnvelopeResponse.
-type GeneralMessageWithSecretEnvelopeResponse = SecretEnvolopeResponse
+type GeneralMessageWithSecretEnvelopeResponse = SecretEnvelopeResponse
 
 // GeneralMessageWithSecretResponse defines model for GeneralMessageWithSecretResponse.
 type GeneralMessageWithSecretResponse struct {
@@ -177,6 +191,7 @@ type Keys = []Key
 // GetSecretParams defines parameters for GetSecret.
 type GetSecretParams struct {
 	Reference *string `form:"reference,omitempty" json:"reference,omitempty"`
+	All       *bool   `form:"all,omitempty" json:"all,omitempty"`
 }
 
 // GetUserParams defines parameters for GetUser.
@@ -195,7 +210,7 @@ type PostAuthOidcHandlerGenericJwtJSONRequestBody = OIDCProviderToken
 type PostAuthOidcHandlerGithubJSONRequestBody = OIDCProviderToken
 
 // PostSecretJSONRequestBody defines body for PostSecret for application/json ContentType.
-type PostSecretJSONRequestBody = CreateSecretEnvolopeOptions
+type PostSecretJSONRequestBody = CreateSecretEnvelopeOptions
 
 // PostUserMeKeyJSONRequestBody defines body for PostUserMeKey for application/json ContentType.
 type PostUserMeKeyJSONRequestBody = NewKey

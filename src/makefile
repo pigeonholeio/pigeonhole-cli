@@ -3,7 +3,7 @@
 update-go:
 	go get -u
 	go mod tidy 
-	go mod vendorgo run
+	go mod vendor
 
 
 post-secret-test:

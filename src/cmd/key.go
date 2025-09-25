@@ -137,21 +137,12 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	// KeysCreateCmd.Flags().AddFlag().
+
 	KeysCreateCmd.PersistentFlags().BoolP("force", "f", false, "Force overwrite key with same reference")
 	KeysCreateCmd.PersistentFlags().Bool("clear", false, "Clear out all other keys")
 	KeysCreateCmd.PersistentFlags().StringP("reference", "r", "", "Override the reference for the key i.e. where it'll be used or created")
 	rootCmd.AddCommand(keysCmd)
-	keysCmd.AddCommand(KeysInitCmd)
+
 	keysCmd.AddCommand(KeysListCmd)
-	keysCmd.AddCommand(KeysCreateCmd)
-	// Here you will define your flags and configuration settings.
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// keysInitCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// keysInitCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

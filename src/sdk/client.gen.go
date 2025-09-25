@@ -145,9 +145,6 @@ type ClientInterface interface {
 	// GetUserMeKeyValidateThumbprint request
 	GetUserMeKeyValidateThumbprint(ctx context.Context, thumbprint string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostUserMeRotateShortcode request
-	PostUserMeRotateShortcode(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetUserUserId request
 	GetUserUserId(ctx context.Context, userId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -189,6 +186,7 @@ func (c *Client) PostAuthOidcHandlerGenericWithBody(ctx context.Context, content
 }
 
 func (c *Client) PostAuthOidcHandlerGeneric(ctx context.Context, body PostAuthOidcHandlerGenericJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+		
 	req, err := NewPostAuthOidcHandlerGenericRequest(c.Server, body)
 	if err != nil {
 		return nil, err
@@ -406,18 +404,6 @@ func (c *Client) PostUserMeKey(ctx context.Context, body PostUserMeKeyJSONReques
 
 func (c *Client) GetUserMeKeyValidateThumbprint(ctx context.Context, thumbprint string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetUserMeKeyValidateThumbprintRequest(c.Server, thumbprint)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostUserMeRotateShortcode(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserMeRotateShortcodeRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -747,6 +733,22 @@ func NewGetSecretRequest(server string, params *GetSecretParams) (*http.Request,
 		if params.Reference != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "reference", runtime.ParamLocationQuery, *params.Reference); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.All != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "all", runtime.ParamLocationQuery, *params.All); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -1091,33 +1093,6 @@ func NewGetUserMeKeyValidateThumbprintRequest(server string, thumbprint string) 
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPostUserMeRotateShortcodeRequest generates requests for PostUserMeRotateShortcode
-func NewPostUserMeRotateShortcodeRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/user/me/rotate-shortcode")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1521,9 +1496,6 @@ type ClientWithResponsesInterface interface {
 	// GetUserMeKeyValidateThumbprintWithResponse request
 	GetUserMeKeyValidateThumbprintWithResponse(ctx context.Context, thumbprint string, reqEditors ...RequestEditorFn) (*GetUserMeKeyValidateThumbprintResponse, error)
 
-	// PostUserMeRotateShortcodeWithResponse request
-	PostUserMeRotateShortcodeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostUserMeRotateShortcodeResponse, error)
-
 	// GetUserUserIdWithResponse request
 	GetUserUserIdWithResponse(ctx context.Context, userId string, reqEditors ...RequestEditorFn) (*GetUserUserIdResponse, error)
 
@@ -1745,7 +1717,7 @@ func (r PostSecretResponse) StatusCode() int {
 type DeleteSecretSecretIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *GeneralMessageResponse
+	JSON200      *GeneralMessageWithSecretResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
@@ -1799,6 +1771,7 @@ func (r GetSecretSecretIdResponse) StatusCode() int {
 type GetSecretSecretIdDownloadResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON307      *GeneralMessageWithDownloadResponse
 	JSON400      *GeneralMessage
 	JSON401      *GeneralMessage
 	JSON403      *GeneralMessage
@@ -1951,32 +1924,6 @@ func (r GetUserMeKeyValidateThumbprintResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetUserMeKeyValidateThumbprintResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PostUserMeRotateShortcodeResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *GeneralMessage
-	JSON401      *GeneralMessage
-	JSON403      *GeneralMessage
-	JSON404      *GeneralMessage
-	JSON500      *GeneralMessage
-}
-
-// Status returns HTTPResponse.Status
-func (r PostUserMeRotateShortcodeResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PostUserMeRotateShortcodeResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2334,15 +2281,6 @@ func (c *ClientWithResponses) GetUserMeKeyValidateThumbprintWithResponse(ctx con
 		return nil, err
 	}
 	return ParseGetUserMeKeyValidateThumbprintResponse(rsp)
-}
-
-// PostUserMeRotateShortcodeWithResponse request returning *PostUserMeRotateShortcodeResponse
-func (c *ClientWithResponses) PostUserMeRotateShortcodeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostUserMeRotateShortcodeResponse, error) {
-	rsp, err := c.PostUserMeRotateShortcode(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostUserMeRotateShortcodeResponse(rsp)
 }
 
 // GetUserUserIdWithResponse request returning *GetUserUserIdResponse
@@ -2881,7 +2819,7 @@ func ParseDeleteSecretSecretIdResponse(rsp *http.Response) (*DeleteSecretSecretI
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest GeneralMessageResponse
+		var dest GeneralMessageWithSecretResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3002,6 +2940,13 @@ func ParseGetSecretSecretIdDownloadResponse(rsp *http.Response) (*GetSecretSecre
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 307:
+		var dest GeneralMessageWithDownloadResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON307 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3307,60 +3252,6 @@ func ParseGetUserMeKeyValidateThumbprintResponse(rsp *http.Response) (*GetUserMe
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePostUserMeRotateShortcodeResponse parses an HTTP response from a PostUserMeRotateShortcodeWithResponse call
-func ParsePostUserMeRotateShortcodeResponse(rsp *http.Response) (*PostUserMeRotateShortcodeResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PostUserMeRotateShortcodeResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest GeneralMessage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

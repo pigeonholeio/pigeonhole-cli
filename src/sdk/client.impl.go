@@ -44,15 +44,19 @@ func (ht HumanTime) MarshalYAML() (interface{}, error) {
 func ToSecretView(s Secret) SecretView {
 	size := humanize.Bytes(uint64(*s.Size))
 	return SecretView{
-		Reference: s.Reference,
-		Size:      &size,
-		Sent:      (*HumanTime)(s.SentAt),
-		Recipient: s.Recipient,
-		Sender:    s.Sender,
+		Reference:  s.Reference,
+		Size:       &size,
+		Sent:       (*HumanTime)(s.SentAt),
+		Recipient:  s.Recipient,
+		Sender:     s.Sender,
+		OneTime:    s.Onetime,
+		Expiration: (*HumanTime)(s.Expiration),
+
 		// SentAt:     HumanTime(*s.SentAt),
 		// UploadedAt: HumanTime(s.UploadedAt),
 	}
 }
+
 func ToSecretViewSlice(secrets []Secret) []SecretView {
 	views := make([]SecretView, len(secrets))
 	for i, s := range secrets {
@@ -63,11 +67,13 @@ func ToSecretViewSlice(secrets []Secret) []SecretView {
 
 // SecretView defines model for SecretView.
 type SecretView struct {
-	Reference *string    `json:"reference,omitempty"`
-	Sent      *HumanTime `json:"sent_at,omitempty"`
-	Recipient *string    `json:"recipient,omitempty"`
-	Sender    *string    `json:"sender,omitempty"`
-	Size      *string    `json:"size,omitempty"`
+	Reference  *string    `json:"reference,omitempty"`
+	Sent       *HumanTime `json:"sent_at,omitempty"`
+	Expiration *HumanTime `json:"expiration,omitempty"`
+	Recipient  *string    `json:"recipient,omitempty"`
+	Sender     *string    `json:"sender,omitempty"`
+	Size       *string    `json:"size,omitempty"`
+	OneTime    *bool      `json:"onetime,omitempty"`
 }
 
 func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
@@ -125,9 +131,9 @@ func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
 	// return client
 }
 
-func GetUserGPGArmoredPubKeysFromIdSlice(ctx *context.Context, secretEnvelopeResponse *SecretEnvolopeResponse) ([]string, error) {
+func GetUserGPGArmoredPubKeysFromIdSlice(ctx *context.Context, secretEnvelopeResponse *SecretEnvelopeResponse) ([]string, error) {
 	if *secretEnvelopeResponse.Users == nil {
-		return nil, fmt.Errorf("no users found on Secret Envolope")
+		return nil, fmt.Errorf("no users found on Secret Envelope")
 	}
 	var keys []string
 	for _, x := range *secretEnvelopeResponse.Users {

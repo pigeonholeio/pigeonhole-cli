@@ -95,29 +95,23 @@ Example:
 var authLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Log into Pigeonhole using your Identity Provider",
-	Long: `Log into your Identity Provider.
-	
-Pigeonhole currently only supports Azure Active Directory.
-`,
+	Long:  `Log into your Identity Provider`,
 	Annotations: map[string]string{
 		"skip-pre-run": "true",
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// name := "Rhys E"
-		// email := "rhys@rhysevans.co.uk"
-
 		oidcProviders, err := PigeonHoleClient.GetAuthOidcProvidersWithResponse(GlobalCtx)
 		if err != nil {
 			logrus.Debugln(err.Error())
 			fmt.Println("Something went wrong retrieving the default OIDC provider")
 			return
 		}
+		fmt.Printf("To view list of available Identity Providers use:\n	pigeonhole auth list\n\n")
+		fmt.Printf("Using default provider: %s\n", *oidcProviders.JSON200.Default)
 		var foundProvider sdk.OIDCProvider
 		if DefaultOIDCProvider == "" {
 			DefaultOIDCProvider = *oidcProviders.JSON200.Default
 			foundProvider = (*oidcProviders.JSON200.OidcProviders)[DefaultOIDCProvider]
-
-			// foundProvider = &oidcProviders.JSON200.OidcProviders[DefaultOIDCProvider]
 		} else {
 			DefaultOIDCProvider = strings.ToLower(DefaultOIDCProvider)
 			if providers := oidcProviders.JSON200.OidcProviders; providers != nil {
@@ -258,17 +252,8 @@ func init() {
 	authCmd.AddCommand(authListCmd)
 	authCmd.AddCommand(authLoginCmd)
 	rootCmd.AddCommand(authCmd)
-	// // oidcProviders, err := PigeonHoleClient.GetAuthOidcProvidersWithResponse(GlobalCtx)
 
 	authLoginCmd.PersistentFlags().StringVar(&DefaultOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
+	rootCmd.AddCommand(authLoginCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// loginCmd.Flags().BoolP("list",, "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// loginCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
