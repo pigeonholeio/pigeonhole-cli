@@ -7,16 +7,15 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
-func (c *ClientWithResponses) PostAuthOidcCleverHandlerWithResponse(ctx context.Context, provider *OIDCProvider, idPToken *OIDCProviderToken, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericResponse, error) {
-	rsp, err := c.PostAuthOidcCleverHandler(ctx, provider, idPToken, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostAuthOidcCleverHandlerResponse(rsp)
-}
+// func (c *ClientWithResponses) PostAuthOidcCleverHandlerWithResponse(ctx context.Context, provider *OIDCProvider, idPToken *OIDCProviderToken, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericResponse, error) {
+// 	rsp, err := c.PostAuthOidcCleverHandler(ctx, provider, idPToken, reqEditors...)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return ParsePostAuthOidcCleverHandlerResponse(rsp)
+// }
 
 // PostAuthOidcHandlerGenericJSONRequestBody
 func (c *Client) PostAuthOidcCleverHandler(ctx context.Context, provider *OIDCProvider, idPToken *OIDCProviderToken, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -63,55 +62,55 @@ func NewPostAuthOidcCleverHandlerRequestWithBody(provider *OIDCProvider, content
 
 // PostAuthOidcHandlerGenericResponse
 // ParsePostAuthOidcHandlerGenericResponse parses an HTTP response from a PostAuthOidcHandlerGenericWithResponse call
-func ParsePostAuthOidcCleverHandlerResponse(rsp *http.Response) (*PostAuthOidcHandlerGenericResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
+// func ParsePostAuthOidcCleverHandlerResponse(rsp *http.Response) (*PostAuthOidcHandlerGenericResponse, error) {
+// 	bodyBytes, err := io.ReadAll(rsp.Body)
+// 	defer func() { _ = rsp.Body.Close() }()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	response := &PostAuthOidcHandlerGenericResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
+// 	response := &PostAuthOidcHandlerGenericResponse{
+// 		Body:         bodyBytes,
+// 		HTTPResponse: rsp,
+// 	}
 
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest GeneralMessageWithTokenResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
+// 	switch {
+// 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+// 		var dest GeneralMessageWithTokenResponse
+// 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+// 			return nil, err
+// 		}
+// 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
+// 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+// 		var dest GeneralMessage
+// 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+// 			return nil, err
+// 		}
+// 		response.JSON400 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
+// 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+// 		var dest GeneralMessage
+// 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+// 			return nil, err
+// 		}
+// 		response.JSON401 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
+// 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+// 		var dest GeneralMessage
+// 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+// 			return nil, err
+// 		}
+// 		response.JSON403 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
+// 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+// 		var dest GeneralMessage
+// 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+// 			return nil, err
+// 		}
+// 		response.JSON500 = &dest
 
-	}
+// 	}
 
-	return response, nil
-}
+// 	return response, nil
+// }

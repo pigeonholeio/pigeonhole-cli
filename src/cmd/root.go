@@ -14,6 +14,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 var (
@@ -34,13 +36,14 @@ var rootCmd = &cobra.Command{
 
 		SetLogger()
 		GlobalCtx, ContextCancel = context.WithTimeout(context.Background(), 60*time.Second)
-		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig)
+		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig, Version)
 		if cmd.Annotations["skip-pre-run"] == "true" {
 			logrus.Debugln("skipping-pre-run for: ", cmd.CommandPath())
 			return
 		}
 
-		resp, errx := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
+		// resp, errx := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
+		resp, errx := PigeonHoleClient.GetPingWithResponse(GlobalCtx)
 
 		if errx != nil {
 			logrus.Debug(errx)
@@ -54,33 +57,38 @@ var rootCmd = &cobra.Command{
 
 			}
 		}
-		if resp.StatusCode() == http.StatusForbidden {
+
+		if resp.StatusCode() == http.StatusOK {
+			if !sameMajorMinor(*resp.JSON200.Version, Version) {
+				fmt.Printf("❌ Client version does not match server version, please update to the same major + minor version.\nClient Version: v%s\nServer Version: v%s\n", Version, *resp.JSON200.Version)
+				os.Exit(0)
+
+			}
+		} else if resp.StatusCode() == http.StatusForbidden {
 			logrus.Debugf("Message received from server: %s", *resp.JSON403.Message)
 			fmt.Println("🛡️ Invalid Token (Forbidden) - Try signing back in using `pigeonhole auth --help`")
+			os.Exit(0)
 		} else if resp.StatusCode() == http.StatusBadRequest {
 			logrus.Debugf("Message received from server: %s", *resp.JSON400.Message)
 			fmt.Println("🛡️ Invalid Token (Bad Request) - Try signing back in using `pigeonhole auth --help`")
+			os.Exit(0)
 		} else if resp.StatusCode() == http.StatusUnauthorized {
 			logrus.Debugf("Message received from server: %s", *resp.JSON401.Message)
 			fmt.Println("🛡️ Invalid Token (Unauthorized) - Try signing back in using `pigeonhole auth --help`")
+			os.Exit(0)
 		} else if resp.StatusCode() == http.StatusInternalServerError {
 			logrus.Debugf("Message received from server: %s", *resp.JSON500.Message)
 			fmt.Println("🌭 The PigeonHole API is misbehaving. Grab a tea, it'll be fixed soon!")
+			os.Exit(0)
 		}
-		return
-		logrus.Debugf("Found caller id: %s", *resp.JSON200.User.Id)
 
 		if utils.KeysExist() != true && viper.GetString("auth.token") != "" {
 			fmt.Println("WARNING: No keys exist yet! Set one with pigeonhole-cli keys init")
 		}
-		//
-		// cmd.SetContext(GlobalCtx)
-		// GlobalCtx
 	},
 }
 
 func Execute() {
-
 	cobra.CheckErr(rootCmd.Execute())
 
 }
@@ -88,6 +96,21 @@ func Execute() {
 var verbose bool
 var cfgFile string
 var v *viper.Viper
+
+func sameMajorMinor(server, client string) bool {
+	logrus.Debugf("server version: %s, client version: %s", server, client)
+	sv1, err := semver.NewVersion(server)
+	if err != nil {
+		return false
+	}
+
+	sv2, err := semver.NewVersion(client)
+	if err != nil {
+		return false
+	}
+
+	return sv1.Major() == sv2.Major() && sv1.Minor() == sv2.Minor()
+}
 
 func init() {
 
@@ -121,7 +144,7 @@ func InitConfig() {
 	}
 
 	// sensible defaults
-	v.SetDefault("api::url", "http://localhost:3000/v1")
+	v.SetDefault("api::url", "https://api.pigeono.io/v1")
 	v.SetDefault("log::level", "info")
 
 	v.AutomaticEnv()

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 
@@ -76,7 +77,7 @@ type SecretView struct {
 	OneTime    *bool      `json:"onetime,omitempty"`
 }
 
-func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
+func PigeonholeClient(cfg *config.PigeonHoleConfig, version string) *ClientWithResponses {
 	// Set up transport with TLS 1.3 if HTTPS
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if strings.HasPrefix(*cfg.API.Url, "https://") {
@@ -92,9 +93,7 @@ func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
 	}
 	reqEditor := func(ctxReq context.Context, req *http.Request) error {
 		logrus.Debugf("Making %s request to %s", req.Method, req.URL)
-		// req.Header.Set("X-Client", "pigeonhole-cli")
-		// req.Header.Set("X-Client-Version", "1.0.0")
-		req.Header.Set("User-Agent", "pigeonhole-cli/1.0")
+		req.Header.Set("User-Agent", fmt.Sprintf("pigeonhole-cli/%s-%s/%s", runtime.GOOS, runtime.GOARCH, version))
 		return nil
 	}
 
@@ -109,7 +108,7 @@ func PigeonholeClient(cfg *config.PigeonHoleConfig) *ClientWithResponses {
 			if err := bearerTokenProvider.Intercept(ctxReq, req); err != nil {
 				return err
 			}
-			req.Header.Set("User-Agent", "pigeonhole-cli/1.0")
+			req.Header.Set("User-Agent", fmt.Sprintf("pigeonhole-cli/%s-%s/%s", runtime.GOOS, runtime.GOARCH, version))
 			return nil
 		}
 	}

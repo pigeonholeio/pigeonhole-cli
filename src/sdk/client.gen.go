@@ -89,24 +89,16 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// PostAuthOidcHandlerGenericWithBody request with any body
-	PostAuthOidcHandlerGenericWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostAuthOidcHandlerProviderWithBody request with any body
+	PostAuthOidcHandlerProviderWithBody(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostAuthOidcHandlerGeneric(ctx context.Context, body PostAuthOidcHandlerGenericJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-	PostAuthOidcCleverHandler(ctx context.Context, provider *OIDCProvider, idPToken *OIDCProviderToken, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PostAuthOidcHandlerGenericJwtWithBody request with any body
-	PostAuthOidcHandlerGenericJwtWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PostAuthOidcHandlerGenericJwt(ctx context.Context, body PostAuthOidcHandlerGenericJwtJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PostAuthOidcHandlerGithubWithBody request with any body
-	PostAuthOidcHandlerGithubWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PostAuthOidcHandlerGithub(ctx context.Context, body PostAuthOidcHandlerGithubJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostAuthOidcHandlerProvider(ctx context.Context, provider string, body PostAuthOidcHandlerProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAuthOidcProviders request
 	GetAuthOidcProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPing request
+	GetPing(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteSecret request
 	DeleteSecret(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -173,8 +165,8 @@ type ClientInterface interface {
 	GetUserUserIdPublic(ctx context.Context, userId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) PostAuthOidcHandlerGenericWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostAuthOidcHandlerGenericRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostAuthOidcHandlerProviderWithBody(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostAuthOidcHandlerProviderRequestWithBody(c.Server, provider, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -185,57 +177,8 @@ func (c *Client) PostAuthOidcHandlerGenericWithBody(ctx context.Context, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostAuthOidcHandlerGeneric(ctx context.Context, body PostAuthOidcHandlerGenericJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-		
-	req, err := NewPostAuthOidcHandlerGenericRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostAuthOidcHandlerGenericJwtWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostAuthOidcHandlerGenericJwtRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostAuthOidcHandlerGenericJwt(ctx context.Context, body PostAuthOidcHandlerGenericJwtJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostAuthOidcHandlerGenericJwtRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostAuthOidcHandlerGithubWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostAuthOidcHandlerGithubRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostAuthOidcHandlerGithub(ctx context.Context, body PostAuthOidcHandlerGithubJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostAuthOidcHandlerGithubRequest(c.Server, body)
+func (c *Client) PostAuthOidcHandlerProvider(ctx context.Context, provider string, body PostAuthOidcHandlerProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostAuthOidcHandlerProviderRequest(c.Server, provider, body)
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +191,18 @@ func (c *Client) PostAuthOidcHandlerGithub(ctx context.Context, body PostAuthOid
 
 func (c *Client) GetAuthOidcProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAuthOidcProvidersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPing(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPingRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -534,107 +489,34 @@ func (c *Client) GetUserUserIdPublic(ctx context.Context, userId string, reqEdit
 	return c.Client.Do(req)
 }
 
-// NewPostAuthOidcHandlerGenericRequest calls the generic PostAuthOidcHandlerGeneric builder with application/json body
-func NewPostAuthOidcHandlerGenericRequest(server string, body PostAuthOidcHandlerGenericJSONRequestBody) (*http.Request, error) {
+// NewPostAuthOidcHandlerProviderRequest calls the generic PostAuthOidcHandlerProvider builder with application/json body
+func NewPostAuthOidcHandlerProviderRequest(server string, provider string, body PostAuthOidcHandlerProviderJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostAuthOidcHandlerGenericRequestWithBody(server, "application/json", bodyReader)
+	return NewPostAuthOidcHandlerProviderRequestWithBody(server, provider, "application/json", bodyReader)
 }
 
-// NewPostAuthOidcHandlerGenericRequestWithBody generates requests for PostAuthOidcHandlerGeneric with any type of body
-func NewPostAuthOidcHandlerGenericRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPostAuthOidcHandlerProviderRequestWithBody generates requests for PostAuthOidcHandlerProvider with any type of body
+func NewPostAuthOidcHandlerProviderRequestWithBody(server string, provider string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "provider", runtime.ParamLocationPath, provider)
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/auth/oidc/handler/generic")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewPostAuthOidcHandlerGenericJwtRequest calls the generic PostAuthOidcHandlerGenericJwt builder with application/json body
-func NewPostAuthOidcHandlerGenericJwtRequest(server string, body PostAuthOidcHandlerGenericJwtJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPostAuthOidcHandlerGenericJwtRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPostAuthOidcHandlerGenericJwtRequestWithBody generates requests for PostAuthOidcHandlerGenericJwt with any type of body
-func NewPostAuthOidcHandlerGenericJwtRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/auth/oidc/handler/generic-jwt")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewPostAuthOidcHandlerGithubRequest calls the generic PostAuthOidcHandlerGithub builder with application/json body
-func NewPostAuthOidcHandlerGithubRequest(server string, body PostAuthOidcHandlerGithubJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPostAuthOidcHandlerGithubRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPostAuthOidcHandlerGithubRequestWithBody generates requests for PostAuthOidcHandlerGithub with any type of body
-func NewPostAuthOidcHandlerGithubRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/auth/oidc/handler/github")
+	operationPath := fmt.Sprintf("/auth/oidc/handler/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -664,6 +546,33 @@ func NewGetAuthOidcProvidersRequest(server string) (*http.Request, error) {
 	}
 
 	operationPath := fmt.Sprintf("/auth/oidc/providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPingRequest generates requests for GetPing
+func NewGetPingRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/ping")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1441,23 +1350,16 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// PostAuthOidcHandlerGenericWithBodyWithResponse request with any body
-	PostAuthOidcHandlerGenericWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericResponse, error)
+	// PostAuthOidcHandlerProviderWithBodyWithResponse request with any body
+	PostAuthOidcHandlerProviderWithBodyWithResponse(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerProviderResponse, error)
 
-	PostAuthOidcHandlerGenericWithResponse(ctx context.Context, body PostAuthOidcHandlerGenericJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericResponse, error)
-
-	// PostAuthOidcHandlerGenericJwtWithBodyWithResponse request with any body
-	PostAuthOidcHandlerGenericJwtWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericJwtResponse, error)
-
-	PostAuthOidcHandlerGenericJwtWithResponse(ctx context.Context, body PostAuthOidcHandlerGenericJwtJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericJwtResponse, error)
-
-	// PostAuthOidcHandlerGithubWithBodyWithResponse request with any body
-	PostAuthOidcHandlerGithubWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGithubResponse, error)
-
-	PostAuthOidcHandlerGithubWithResponse(ctx context.Context, body PostAuthOidcHandlerGithubJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGithubResponse, error)
+	PostAuthOidcHandlerProviderWithResponse(ctx context.Context, provider string, body PostAuthOidcHandlerProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerProviderResponse, error)
 
 	// GetAuthOidcProvidersWithResponse request
 	GetAuthOidcProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAuthOidcProvidersResponse, error)
+
+	// GetPingWithResponse request
+	GetPingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPingResponse, error)
 
 	// DeleteSecretWithResponse request
 	DeleteSecretWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteSecretResponse, error)
@@ -1524,7 +1426,7 @@ type ClientWithResponsesInterface interface {
 	GetUserUserIdPublicWithResponse(ctx context.Context, userId string, reqEditors ...RequestEditorFn) (*GetUserUserIdPublicResponse, error)
 }
 
-type PostAuthOidcHandlerGenericResponse struct {
+type PostAuthOidcHandlerProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *GeneralMessageWithTokenResponse
@@ -1536,7 +1438,7 @@ type PostAuthOidcHandlerGenericResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PostAuthOidcHandlerGenericResponse) Status() string {
+func (r PostAuthOidcHandlerProviderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1544,61 +1446,7 @@ func (r PostAuthOidcHandlerGenericResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostAuthOidcHandlerGenericResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PostAuthOidcHandlerGenericJwtResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *GeneralMessageWithTokenResponse
-	JSON400      *GeneralMessage
-	JSON401      *GeneralMessage
-	JSON403      *GeneralMessage
-	JSON404      *GeneralMessage
-	JSON500      *GeneralMessage
-}
-
-// Status returns HTTPResponse.Status
-func (r PostAuthOidcHandlerGenericJwtResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PostAuthOidcHandlerGenericJwtResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PostAuthOidcHandlerGithubResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *GeneralMessageWithTokenResponse
-	JSON400      *GeneralMessage
-	JSON401      *GeneralMessage
-	JSON403      *GeneralMessage
-	JSON404      *GeneralMessage
-	JSON500      *GeneralMessage
-}
-
-// Status returns HTTPResponse.Status
-func (r PostAuthOidcHandlerGithubResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PostAuthOidcHandlerGithubResponse) StatusCode() int {
+func (r PostAuthOidcHandlerProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1626,6 +1474,33 @@ func (r GetAuthOidcProvidersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAuthOidcProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GeneralMessageWithServerInfoResponse
+	JSON400      *GeneralMessage
+	JSON401      *GeneralMessage
+	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
+	JSON500      *GeneralMessage
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPingResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2108,55 +1983,21 @@ func (r GetUserUserIdPublicResponse) StatusCode() int {
 	return 0
 }
 
-// PostAuthOidcHandlerGenericWithBodyWithResponse request with arbitrary body returning *PostAuthOidcHandlerGenericResponse
-func (c *ClientWithResponses) PostAuthOidcHandlerGenericWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericResponse, error) {
-	rsp, err := c.PostAuthOidcHandlerGenericWithBody(ctx, contentType, body, reqEditors...)
+// PostAuthOidcHandlerProviderWithBodyWithResponse request with arbitrary body returning *PostAuthOidcHandlerProviderResponse
+func (c *ClientWithResponses) PostAuthOidcHandlerProviderWithBodyWithResponse(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerProviderResponse, error) {
+	rsp, err := c.PostAuthOidcHandlerProviderWithBody(ctx, provider, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostAuthOidcHandlerGenericResponse(rsp)
+	return ParsePostAuthOidcHandlerProviderResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostAuthOidcHandlerGenericWithResponse(ctx context.Context, body PostAuthOidcHandlerGenericJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericResponse, error) {
-	rsp, err := c.PostAuthOidcHandlerGeneric(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostAuthOidcHandlerProviderWithResponse(ctx context.Context, provider string, body PostAuthOidcHandlerProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerProviderResponse, error) {
+	rsp, err := c.PostAuthOidcHandlerProvider(ctx, provider, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostAuthOidcHandlerGenericResponse(rsp)
-}
-
-// PostAuthOidcHandlerGenericJwtWithBodyWithResponse request with arbitrary body returning *PostAuthOidcHandlerGenericJwtResponse
-func (c *ClientWithResponses) PostAuthOidcHandlerGenericJwtWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericJwtResponse, error) {
-	rsp, err := c.PostAuthOidcHandlerGenericJwtWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostAuthOidcHandlerGenericJwtResponse(rsp)
-}
-
-func (c *ClientWithResponses) PostAuthOidcHandlerGenericJwtWithResponse(ctx context.Context, body PostAuthOidcHandlerGenericJwtJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGenericJwtResponse, error) {
-	rsp, err := c.PostAuthOidcHandlerGenericJwt(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostAuthOidcHandlerGenericJwtResponse(rsp)
-}
-
-// PostAuthOidcHandlerGithubWithBodyWithResponse request with arbitrary body returning *PostAuthOidcHandlerGithubResponse
-func (c *ClientWithResponses) PostAuthOidcHandlerGithubWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGithubResponse, error) {
-	rsp, err := c.PostAuthOidcHandlerGithubWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostAuthOidcHandlerGithubResponse(rsp)
-}
-
-func (c *ClientWithResponses) PostAuthOidcHandlerGithubWithResponse(ctx context.Context, body PostAuthOidcHandlerGithubJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAuthOidcHandlerGithubResponse, error) {
-	rsp, err := c.PostAuthOidcHandlerGithub(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostAuthOidcHandlerGithubResponse(rsp)
+	return ParsePostAuthOidcHandlerProviderResponse(rsp)
 }
 
 // GetAuthOidcProvidersWithResponse request returning *GetAuthOidcProvidersResponse
@@ -2166,6 +2007,15 @@ func (c *ClientWithResponses) GetAuthOidcProvidersWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseGetAuthOidcProvidersResponse(rsp)
+}
+
+// GetPingWithResponse request returning *GetPingResponse
+func (c *ClientWithResponses) GetPingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPingResponse, error) {
+	rsp, err := c.GetPing(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPingResponse(rsp)
 }
 
 // DeleteSecretWithResponse request returning *DeleteSecretResponse
@@ -2370,137 +2220,15 @@ func (c *ClientWithResponses) GetUserUserIdPublicWithResponse(ctx context.Contex
 	return ParseGetUserUserIdPublicResponse(rsp)
 }
 
-// ParsePostAuthOidcHandlerGenericResponse parses an HTTP response from a PostAuthOidcHandlerGenericWithResponse call
-func ParsePostAuthOidcHandlerGenericResponse(rsp *http.Response) (*PostAuthOidcHandlerGenericResponse, error) {
+// ParsePostAuthOidcHandlerProviderResponse parses an HTTP response from a PostAuthOidcHandlerProviderWithResponse call
+func ParsePostAuthOidcHandlerProviderResponse(rsp *http.Response) (*PostAuthOidcHandlerProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostAuthOidcHandlerGenericResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest GeneralMessageWithTokenResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePostAuthOidcHandlerGenericJwtResponse parses an HTTP response from a PostAuthOidcHandlerGenericJwtWithResponse call
-func ParsePostAuthOidcHandlerGenericJwtResponse(rsp *http.Response) (*PostAuthOidcHandlerGenericJwtResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PostAuthOidcHandlerGenericJwtResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest GeneralMessageWithTokenResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest GeneralMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePostAuthOidcHandlerGithubResponse parses an HTTP response from a PostAuthOidcHandlerGithubWithResponse call
-func ParsePostAuthOidcHandlerGithubResponse(rsp *http.Response) (*PostAuthOidcHandlerGithubResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PostAuthOidcHandlerGithubResponse{
+	response := &PostAuthOidcHandlerProviderResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2569,6 +2297,67 @@ func ParseGetAuthOidcProvidersResponse(rsp *http.Response) (*GetAuthOidcProvider
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GeneralMessageWithOIDCProvidersResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPingResponse parses an HTTP response from a GetPingWithResponse call
+func ParseGetPingResponse(rsp *http.Response) (*GetPingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GeneralMessageWithServerInfoResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

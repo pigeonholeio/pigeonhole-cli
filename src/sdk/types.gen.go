@@ -60,6 +60,7 @@ type OIDCProvider struct {
 	Name          *string   `json:"name,omitempty"`
 	Scopes        *[]string `json:"scopes,omitempty"`
 	TokenUrl      *string   `json:"tokenUrl,omitempty"`
+	UserInfoUrl   *string   `json:"userInfoUrl"`
 }
 
 // OIDCProviderToken This is used to pass the IdP issued id/access token to exchange it for a PigeonHole access token
@@ -163,6 +164,11 @@ type GeneralMessageWithSecretsResponse struct {
 	Secrets *[]Secret `json:"secrets,omitempty"`
 }
 
+// GeneralMessageWithServerInfoResponse defines model for GeneralMessageWithServerInfoResponse.
+type GeneralMessageWithServerInfoResponse struct {
+	Version *string `json:"version,omitempty"`
+}
+
 // GeneralMessageWithTokenResponse defines model for GeneralMessageWithTokenResponse.
 type GeneralMessageWithTokenResponse struct {
 	// AccessToken A JWT token
@@ -200,14 +206,8 @@ type GetUserParams struct {
 	Email         []openapi_types.Email `form:"email" json:"email"`
 }
 
-// PostAuthOidcHandlerGenericJSONRequestBody defines body for PostAuthOidcHandlerGeneric for application/json ContentType.
-type PostAuthOidcHandlerGenericJSONRequestBody = OIDCProviderToken
-
-// PostAuthOidcHandlerGenericJwtJSONRequestBody defines body for PostAuthOidcHandlerGenericJwt for application/json ContentType.
-type PostAuthOidcHandlerGenericJwtJSONRequestBody = OIDCProviderToken
-
-// PostAuthOidcHandlerGithubJSONRequestBody defines body for PostAuthOidcHandlerGithub for application/json ContentType.
-type PostAuthOidcHandlerGithubJSONRequestBody = OIDCProviderToken
+// PostAuthOidcHandlerProviderJSONRequestBody defines body for PostAuthOidcHandlerProvider for application/json ContentType.
+type PostAuthOidcHandlerProviderJSONRequestBody = OIDCProviderToken
 
 // PostSecretJSONRequestBody defines body for PostSecret for application/json ContentType.
 type PostSecretJSONRequestBody = CreateSecretEnvelopeOptions

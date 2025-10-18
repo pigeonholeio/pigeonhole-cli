@@ -32,8 +32,9 @@ import (
 
 // loginCmd represents the login command
 var authListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List available Identity Providers",
+	Use:     "list-providers",
+	Aliases: []string{"list", "providers", "list-idps", "idps"},
+	Short:   "List available Identity Providers",
 	Long: `List the available Identiy Providers, to allow you to log in with the correct Identity Provider.
 `,
 	Annotations: map[string]string{
@@ -106,29 +107,29 @@ var authLoginCmd = &cobra.Command{
 			fmt.Println("Something went wrong retrieving the default OIDC provider")
 			return
 		}
-		fmt.Printf("To view list of available Identity Providers use:\n	pigeonhole auth list\n\n")
-		fmt.Printf("Using default provider: %s\n", *oidcProviders.JSON200.Default)
+
 		var foundProvider sdk.OIDCProvider
-		if DefaultOIDCProvider == "" {
-			DefaultOIDCProvider = *oidcProviders.JSON200.Default
-			foundProvider = (*oidcProviders.JSON200.OidcProviders)[DefaultOIDCProvider]
+
+		if UseOIDCProvider == "" { // assumes not set
+			fmt.Printf("To view list of available Identity Providers use:\n	pigeonhole auth list\n\n")
+			fmt.Printf("Using default provider: %s\n", *oidcProviders.JSON200.Default)
+			UseOIDCProvider = *oidcProviders.JSON200.Default
+			foundProvider = (*oidcProviders.JSON200.OidcProviders)[UseOIDCProvider]
 		} else {
-			DefaultOIDCProvider = strings.ToLower(DefaultOIDCProvider)
+			UseOIDCProvider = strings.ToLower(UseOIDCProvider)
 			if providers := oidcProviders.JSON200.OidcProviders; providers != nil {
-				if provider, ok := (*providers)[DefaultOIDCProvider]; ok {
+				if provider, ok := (*providers)[UseOIDCProvider]; ok {
 					foundProvider = provider
 					logrus.Debugf("OIDC Provider found: [%s]{%s} %s", *provider.Name, *provider.ClientID, *provider.AuthUrl)
 				} else {
-					fmt.Println("Provider not found:", DefaultOIDCProvider)
+					fmt.Println("Provider not found:", UseOIDCProvider)
 					fmt.Printf("\nRun the following command to list available providers\n	pigeonhole auth list\n\n")
 					return
 				}
 			}
 		}
 
-		logrus.Debugf("Using the provider: %s\n", DefaultOIDCProvider)
-		// logrus.Debugf("Using the provider: %s", DefaultOIDCProvider)
-		// oidcProviders, err := PigeonHoleClient.GetAuthOidcProvidersWithResponse(GlobalCtx)
+		logrus.Debugf("Using the provider: %s\n", UseOIDCProvider)
 
 		idPTok, err := auth.AuthenticateWithDeviceCode(GlobalCtx, *foundProvider.ClientID, &foundProvider)
 		if err != nil {
@@ -142,8 +143,8 @@ var authLoginCmd = &cobra.Command{
 		phTok := sdk.OIDCProviderToken{
 			AccessToken: &idPTok.AccessToken,
 		}
-		// PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx)
-		pigeonHoleTokenresp, err := PigeonHoleClient.PostAuthOidcCleverHandlerWithResponse(GlobalCtx, &foundProvider, &phTok)
+		pigeonHoleTokenresp, err := PigeonHoleClient.PostAuthOidcHandlerProviderWithResponse(GlobalCtx, UseOIDCProvider, phTok)
+		//  := PigeonHoleClient.PostAuthOidcCleverHandlerWithResponse(GlobalCtx, &foundProvider, &phTok)
 
 		if err != nil {
 			logrus.Debugln(err.Error())
@@ -151,86 +152,112 @@ var authLoginCmd = &cobra.Command{
 			return
 		}
 
-		logrus.Debugf("PigeonHole Access Token Received: %s", pigeonHoleTokenresp.JSON201.AccessToken)
 		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
 		email, _ := PigeonHoleConfig.GetUserId()
 		name, _ := PigeonHoleConfig.GetUserName()
+		logrus.Debugf("PigeonHole Access Token Received for %s: %s", email, pigeonHoleTokenresp.JSON201.AccessToken)
+
+		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig, Version)
 
 		if PigeonHoleConfig.Identity == nil {
 			logrus.Debugf("Identity is nil")
 			PigeonHoleConfig.Identity = make(map[string]*config.UserIdentity)
 		}
 
-		if PigeonHoleConfig.Identity[email] == nil || PigeonHoleConfig.Identity[email].GPGKey == nil || !PigeonHoleConfig.Identity[email].GPGKey.KeyExists() {
+		identity := PigeonHoleConfig.Identity[email]
+		needKey := identity == nil || identity.GPGKey == nil || !identity.GPGKey.KeyExists()
+
+		if needKey {
 			fmt.Printf("No GPG key pair found locally, generating keys for: %s (%s)\n", name, email)
 
-			if PigeonHoleConfig.Identity[email] == nil {
-				PigeonHoleConfig.Identity[email] = &config.UserIdentity{}
+			// Ensure identity and GPGKey are initialized
+			if identity == nil {
+				identity = &config.UserIdentity{}
+				PigeonHoleConfig.Identity[email] = identity
 			}
-			if PigeonHoleConfig.Identity[email].GPGKey == nil {
-				PigeonHoleConfig.Identity[email].GPGKey = &config.GPGPair{}
+			if identity.GPGKey == nil {
+				identity.GPGKey = &config.GPGPair{}
 			}
 
-			if err := PigeonHoleConfig.Identity[email].GPGKey.EnsureKeyPair(&name, &email); err != nil {
+			// Ensure keypair exists
+			if err := identity.GPGKey.EnsureKeyPair(&name, &email); err != nil {
 				fmt.Println("failed to ensure keypair:", err)
 				return
 			}
-			falsex := false
-			reference, _ := os.Hostname()
 
+			// Prepare request
+			force := false
+			hostname, _ := os.Hostname()
 			keyPost := sdk.PostUserMeKeyJSONRequestBody{
-				Force:      &falsex,
-				KeyData:    PigeonHoleConfig.Identity[email].GPGKey.PublicKey,
-				Reference:  &reference,
-				Thumbprint: PigeonHoleConfig.Identity[email].GPGKey.Thumbprint,
+				Force:      &force,
+				KeyData:    identity.GPGKey.PublicKey,
+				Reference:  &hostname,
+				Thumbprint: identity.GPGKey.Thumbprint,
 			}
+
+			// Send key to server
 			resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, keyPost)
 			if err != nil {
 				logrus.Debugf(err.Error())
-				fmt.Printf("Could not save new GPG Key\n")
-			}
-			switch resp.StatusCode() {
-			case http.StatusCreated:
-				fmt.Println("New keys saved")
+				fmt.Println("Could not save new GPG Key")
+				return
 			}
 
+			if resp.StatusCode() == http.StatusCreated {
+				fmt.Println("New keys saved")
+			}
 		} else {
-			logrus.Debugf("local key already exists for: %s\n", email)
+			logrus.Debugf("local key already exists for: %s", email)
 		}
 
 		logrus.Debugf("Checking remote key exists for local key: %s\n\n", email)
 		keysResponse, err := PigeonHoleClient.GetUserMeKeyValidateThumbprintWithResponse(GlobalCtx, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
 		if err != nil {
-			logrus.Debugf(err.Error())
+			logrus.Debugf("return response re. validating thumbprint: %s", err.Error())
 		}
-		if len(*keysResponse.JSON200.Keys) == 0 {
-			logrus.Debugf("Pushing public key with fingerprint: %s ", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
-			uploadKeyPayload := sdk.PostUserMeKeyJSONRequestBody{}
-			uploadKeyPayload.KeyData = PigeonHoleConfig.Identity[email].GPGKey.PublicKey
-			d, _ := os.Hostname()
-			uploadKeyPayload.Reference = &d
-			uploadKeyPayload.Thumbprint = PigeonHoleConfig.Identity[email].GPGKey.Thumbprint
-			resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, uploadKeyPayload)
-			if err != nil {
-				logrus.Debugf(err.Error())
-				fmt.Printf("Failed to upload key to user %s with fingerprint: %s", email, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
-				return
-			}
-			if resp.StatusCode() == http.StatusCreated {
-				fmt.Printf("Key uploaded successfully with thumbprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
-			} else {
-				logrus.Debugf("Response code: %d", resp.StatusCode())
-				switch resp.StatusCode() {
-				case http.StatusCreated:
-					fmt.Printf("Key uploaded successfully with thumbprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
-				case http.StatusBadRequest:
-					logrus.Debugln(*resp.JSON400.Message)
-				case http.StatusInternalServerError:
-					logrus.Debugln(*resp.JSON500.Message)
+
+		switch keysResponse.StatusCode() {
+		case http.StatusOK:
+			if len(*keysResponse.JSON200.Keys) == 0 {
+				logrus.Debugf("keys not found for %s with thumbprint:", email, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+				logrus.Debugf("Pushing public key with fingerprint: %s ", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+				uploadKeyPayload := sdk.PostUserMeKeyJSONRequestBody{}
+				uploadKeyPayload.KeyData = PigeonHoleConfig.Identity[email].GPGKey.PublicKey
+				d, _ := os.Hostname()
+				uploadKeyPayload.Reference = &d
+				uploadKeyPayload.Thumbprint = PigeonHoleConfig.Identity[email].GPGKey.Thumbprint
+				resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, uploadKeyPayload)
+				if err != nil {
+					logrus.Debugf("Failed to post new key: %s\n", err.Error())
+					fmt.Printf("Failed to upload key to user %s with fingerprint: %s\n", email, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+					return
 				}
-				fmt.Println("Something went wrong")
-				return
+				if resp.StatusCode() == http.StatusCreated {
+					logrus.Debugf("Key uploaded successfully with thumbprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+				} else {
+					logrus.Debugf("Response code: %d", resp.StatusCode())
+					switch resp.StatusCode() {
+					case http.StatusBadRequest:
+						logrus.Debugln(*resp.JSON400.Message)
+					case http.StatusInternalServerError:
+						logrus.Debugln(*resp.JSON500.Message)
+					}
+					fmt.Println("Something went wrong")
+					return
+				}
+			} else {
+				logrus.Debugf("response from keys validation: %s\n", *keysResponse.JSON200.Message)
+				for i, k := range *keysResponse.JSON200.Keys {
+					logrus.Debugf("%d: %s\n", i, *k.Thumbprint)
+
+				}
 			}
+
+		case http.StatusInternalServerError:
+			logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON500.Message)
+		case http.StatusBadRequest:
+			logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON500.Message)
+			return
 		}
 
 		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
@@ -242,18 +269,18 @@ var authLoginCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("\n🔐 Logged in as: %s!\n\n", email)
+		fmt.Printf("\n🔐 Logged in as: %s\n\n", email)
 		fmt.Printf("Now try sending a secret;\n\n	pigeonhole secret send -r recipient@domain.com -f ./myfile\n")
 	},
 }
-var DefaultOIDCProvider string
+var UseOIDCProvider string
 
 func init() {
 	authCmd.AddCommand(authListCmd)
 	authCmd.AddCommand(authLoginCmd)
 	rootCmd.AddCommand(authCmd)
 
-	authLoginCmd.PersistentFlags().StringVar(&DefaultOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
+	authLoginCmd.PersistentFlags().StringVar(&UseOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
 	rootCmd.AddCommand(authLoginCmd)
 
 }

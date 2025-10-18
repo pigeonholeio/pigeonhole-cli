@@ -68,6 +68,8 @@ push-workflow:
 test-github:
 	curl -XPOST -d localhost:3000/v1/auth/oidc/handler/github
 
-update-go:
-	cd src && go get -u && go mod vendor
+# update-go:
+# 	cd src && go get -u 
+# all && go mod tidy && go mod vendor
+# 	cd src && go get -u && go mod vendor
 

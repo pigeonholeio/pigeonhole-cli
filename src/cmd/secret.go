@@ -1,18 +1,3 @@
-/*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-	http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package cmd
 
 import (
@@ -186,7 +171,7 @@ var SecretsListCmd = &cobra.Command{
 
 		logrus.Debugf("PigeonHole return status: %d", code)
 
-		if *f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
+		if f.StatusCode() != http.StatusInternalServerError && *f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON200.Message)
 
 			utils.OutputData(sdk.ToSecretViewSlice(*f.JSON200.Secrets))
@@ -262,7 +247,7 @@ var SecretsDropCmd = &cobra.Command{
 			Expiration:    &timeSecretExpiry,
 		}
 
-		fmt.Printf("📩 Requesting a Secret Envelope from PigeonHole...")
+		fmt.Printf("Requesting a Secret Envelope from PigeonHole...")
 
 		secretEnvelopeResponse, err := PigeonHoleClient.PostSecretWithResponse(GlobalCtx, newSecretRequest)
 
@@ -279,7 +264,7 @@ var SecretsDropCmd = &cobra.Command{
 			logrus.Debugln("Secret envelope received, let's post this secret")
 
 			// viper.WriteConfig()
-			fmt.Printf("🔐 Encrypting secret...")
+			fmt.Printf("Encrypting secret...")
 
 			logrus.Debugf("Creating tmp file for tar archive: ")
 			tarballFilePath, _ := os.CreateTemp(os.TempDir(), "pigeonhole-")
@@ -326,13 +311,13 @@ var SecretsDropCmd = &cobra.Command{
 
 			fmt.Println("done!")
 
-			fmt.Printf("🕊️  Posting secret...")
+			fmt.Printf("Posting secret...")
 			errx := sdk.UploadFile(*secretEnvelopeResponse.JSON201, filename)
 			if errx != nil {
 				logrus.Debugln(errx.Error())
 				fmt.Println("Failed to upload secret!")
 			} else {
-				fmt.Printf("done!\n🚀 Secret encrypted and posted successfully as %s!\n", *secretEnvelopeResponse.JSON201.S3Info.Fields.XAmzMetaReference)
+				fmt.Printf("done!\nSecret encrypted, posted and is en route as %s! 🚀\n\nA lot of time, effort and money goes into supporting PigeonHole.\nIf you like the service why not give a thank you with https://buymeacoffee.com/pigeonholeio\n", *secretEnvelopeResponse.JSON201.S3Info.Fields.XAmzMetaReference)
 			}
 			utils.ShredFile(filename, 3)
 		} else if secretEnvelopeResponse.StatusCode() == http.StatusNotAcceptable {
