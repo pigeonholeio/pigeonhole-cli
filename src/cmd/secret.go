@@ -152,7 +152,8 @@ var SecretsListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"l", "ls"},
 	Short:   "List out your secrets",
-	Long:    `List your secrets that you can collect and decrypt`,
+	Long: `List your secrets that you can collect and decrypt.
+By default only received secrets are listed, use --all to list sent and active secrets too.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// fmt.Println(query)
