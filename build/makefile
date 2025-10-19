@@ -22,7 +22,7 @@ DEB_TMP_DIR := /tmp/deb_build
 copy-gpg:
 	cp -r $(HOME)/.gnupgx /root/.gnupg
 
-build-deb:
+build-deb: copy-gpg
 	@echo "==> Building .deb"
 	rm -rf $(DEB_TMP_DIR)
 	mkdir -p /release
