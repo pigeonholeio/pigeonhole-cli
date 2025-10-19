@@ -20,7 +20,7 @@ DEB_TMP_DIR := /tmp/deb_build
 .SILENT: build-deb
 
 copy-gpg:
-	cp -r /root/.gnupgx /root/.gnupg
+	-cp -r /root/.gnupgx /root/.gnupg
 
 build-deb: copy-gpg
 	@echo "==> Building .deb"
