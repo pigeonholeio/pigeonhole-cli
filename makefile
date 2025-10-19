@@ -84,6 +84,7 @@ publish_apt:
 	docker run -it --rm \
 		-e VERSION=$$(git tag --points-at HEAD) \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
+		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v ./dist:/dist:ro \
 		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
 		-v ./build/makefile:/app/makefile \

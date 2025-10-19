@@ -36,7 +36,7 @@ build-deb: copy-gpg
 	echo "Architecture: amd64" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Description: PigeonHole cli is the modern way to securely send secrets, files or any text" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Maintainer: PigeonHole <info@pigeono.io>" >> $(DEB_TMP_DIR)/DEBIAN/control
-	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(VERSION)_amd64.deb
+	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(VERSION)_amd64.deb 
 
 package-deb:
 	reprepro -b /repo/apt includedeb noble /release/$(NAME)_*
