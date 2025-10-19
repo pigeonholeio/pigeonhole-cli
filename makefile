@@ -84,6 +84,7 @@ publish_apt:
 		--env "XVERSION=$$(git tag --points-at HEAD | sort -r | head -n 1)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
+		-v $$(realpath ~/.ssh):/root/.ssh:ro \
 		-v ./dist:/dist:ro \
 		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
 		-v ./build/makefile:/app/makefile \
