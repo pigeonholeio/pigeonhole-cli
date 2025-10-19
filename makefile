@@ -30,7 +30,7 @@ goreleaser-release:
 	GITLAB_TOKEN= goreleaser release --clean --fail-fast --auto-snapshot
 	
 
-release: trigger-git goreleaser-release
+release: trigger-git goreleaser-release publish_apt
 	
 snapshot:
 	GITLAB_TOKEN= goreleaser build --snapshot --clean

@@ -73,6 +73,7 @@ goreleaser-release:
 
 release: trigger-git goreleaser-release
 	
+	
 snapshot:
 	GITLAB_TOKEN= goreleaser build --snapshot --clean
 
