@@ -105,7 +105,7 @@ release:
     2. Let me know what you'd like to see in the tool by emailing directly or messing me on [keybase.io/rhysjtevans](https://keybase.io/rhysjtevans)
     3. Consider sponsoring the project on Patreon or as a Github Sponsor
 
-  skip_upload: false
+  skip_upload: true
 
 
-  disable: false
+  disable: true

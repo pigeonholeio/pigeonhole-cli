@@ -23,20 +23,20 @@ copy-gpg:
 	-cp -r /root/.gnupgx /root/.gnupg
 
 build-deb: copy-gpg
-	@echo "==> Building .deb"
+	@echo "==> Building for $${XVERSION}"
 	rm -rf $(DEB_TMP_DIR)
 	mkdir -p /release
 	mkdir -p $(DEB_TMP_DIR)/DEBIAN
 	mkdir -p $(DEB_TMP_DIR)/usr/local/bin
 	cp $(BIN) $(DEB_TMP_DIR)/usr/local/bin/$(NAME)
 	echo "Package: $(NAME)" > $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Version: $(VERSION)" >> $(DEB_TMP_DIR)/DEBIAN/control
+	echo "Version: $(XVERSION)" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Section: utils" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Priority: optional" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Architecture: amd64" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Description: PigeonHole cli is the modern way to securely send secrets, files or any text" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Maintainer: PigeonHole <info@pigeono.io>" >> $(DEB_TMP_DIR)/DEBIAN/control
-	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(VERSION)_amd64.deb 
+	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(XVERSION)_amd64.deb 
 
 package-deb:
 	reprepro -b /repo/apt includedeb noble /release/$(NAME)_*
@@ -47,7 +47,7 @@ package-deb:
 sign-deb:
 	reprepro -b /repo/apt export
 release-deb: build-deb package-deb sign-deb
-	cd /repo/apt && git add . && git commit -m"Release $(VERSION)" && git push
+	cd /repo/apt && git add . && git commit -m"Release $(XVERSION)" && git push
 
 import-gpg:
 	gpg --import repo/gpg_secret.asc

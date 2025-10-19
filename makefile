@@ -77,15 +77,24 @@ test-github:
 
 # all: build-deb build-rpm build-choco sign-all
 build_release:
-	docker build --no-cache -t pigeonhole-cli-releaser -f Dockerfile .
+	docker build --no-cache -t pigeonhole-cli-releaser:latest -f build/Dockerfile .
 
-publish_apt:
-# 	mkdir -p {dist,release}
+publish_apt: 
 	docker run -it --rm \
-		-e VERSION=$$(git tag --points-at HEAD) \
+		--env "XVERSION=$$(git tag --points-at HEAD | sort -r | head -n 1)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v ./dist:/dist:ro \
 		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
 		-v ./build/makefile:/app/makefile \
-		pigeonhole-cli-releaser make release-deb
+		pigeonhole-cli-releaser:latest make release-deb
+run_repo: 
+	docker run -it --rm \
+		--env "XVERSION=$$(git tag --points-at HEAD | sort -r | head -n 1)" \
+		-v $$(realpath ~/.gnupg):/root/.gnupgx \
+		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
+		-v $$(realpath ~/.ssh):/root/.ssh:ro \
+		-v ./dist:/dist:ro \
+		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
+		-v ./build/makefile:/app/makefile \
+		pigeonhole-cli-releaser:latest
