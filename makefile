@@ -73,3 +73,18 @@ test-github:
 # all && go mod tidy && go mod vendor
 # 	cd src && go get -u && go mod vendor
 
+
+
+# all: build-deb build-rpm build-choco sign-all
+build_release:
+	docker build --no-cache -t pigeonhole-cli-releaser -f Dockerfile .
+
+publish_apt:
+# 	mkdir -p {dist,release}
+	docker run -it --rm \
+		-e VERSION=$$(git tag --points-at HEAD) \
+		-v $$(realpath ~/.gnupg):/root/.gnupgx \
+		-v ./dist:/dist:ro \
+		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
+		-v ./build/makefile:/app/makefile \
+		pigeonhole-cli-releaser make release-deb
