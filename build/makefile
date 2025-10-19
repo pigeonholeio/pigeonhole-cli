@@ -28,13 +28,13 @@ build-deb: copy-gpg
 	mkdir -p /release
 	mkdir -p $(DEB_TMP_DIR)/DEBIAN
 	mkdir -p $(DEB_TMP_DIR)/usr/local/bin
-	cp $(BIN) $(DEB_TMP_DIR)/usr/local/bin/$(NAME)
+	cp $(BIN) $(DEB_TMP_DIR)/usr/local/bin/pigeonhole
 	echo "Package: $(NAME)" > $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Version: $(XVERSION)" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Section: utils" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Priority: optional" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Architecture: amd64" >> $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Description: PigeonHole cli is the modern way to securely send secrets, files or any text" >> $(DEB_TMP_DIR)/DEBIAN/control
+	echo "Description: PigeonHole cli is the modern way to send secrets, files or any text securely" >> $(DEB_TMP_DIR)/DEBIAN/control
 	echo "Maintainer: PigeonHole <info@pigeono.io>" >> $(DEB_TMP_DIR)/DEBIAN/control
 	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(XVERSION)_amd64.deb 
 
