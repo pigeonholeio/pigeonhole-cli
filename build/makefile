@@ -39,19 +39,17 @@ build-deb: copy-gpg
 	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(XVERSION)_amd64.deb 
 
 package-deb:
-	reprepro -b /repo/apt includedeb noble /release/$(NAME)_*
-	reprepro -b /repo/apt includedeb oracular /release/$(NAME)_*
-	reprepro -b /repo/apt includedeb plucky /release/$(NAME)_*
-	reprepro -b /repo/apt includedeb questing /release/$(NAME)_*
+	reprepro -b /repo/apt --keepunreferencedfiles includedeb noble /release/$(NAME)_*
+	reprepro -b /repo/apt --keepunreferencedfiles includedeb oracular /release/$(NAME)_*
+	reprepro -b /repo/apt --keepunreferencedfiles includedeb plucky /release/$(NAME)_*
+	reprepro -b /repo/apt --keepunreferencedfiles includedeb questing /release/$(NAME)_*
 
 sign-deb:
 	reprepro -b /repo/apt export
+
 release-deb: build-deb package-deb sign-deb
 	cd /repo/apt && git add . && git commit -m"Release $(XVERSION)" && git push
 
-import-gpg:
-	gpg --import repo/gpg_secret.asc
-	gpg-agent --daemon
 	
 # # -----------------------
 # # RPM
