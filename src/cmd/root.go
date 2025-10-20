@@ -134,6 +134,7 @@ func InitConfig() {
 			logrus.Fatalf("could not determine home directory: %v", err)
 		}
 		configPath = fmt.Sprintf("%s/.pigeonhole", home)
+		os.MkdirAll(configPath, 0o700)
 		configType = "yaml"
 		configName = "config"
 		fullConfigPath = fmt.Sprintf("%s/%s.%s", configPath, configName, configType)

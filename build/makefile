@@ -6,6 +6,7 @@ NAME := pigeonhole-cli
 ARCH := amd64
 MAINTAINER := "GPG <gpg@pigeono.io>"
 GPG_KEY := "gpg@pigeono.io"
+GPG_KEY_ID := BCF5FB0D9B5BAB90
 
 DEB_DIR := /repo/apt
 RPM_DIR := /repo/rpm
@@ -16,72 +17,94 @@ BIN :=  /dist/default_linux_amd64_v1/pigeonhole
 BIN_WIN := $(DIST_DIR)/$(NAME).exe
 
 DEB_TMP_DIR := /tmp/deb_build
+RPM_TMP_DIR := /tmp/rpm_build
+
+
+DESCRIPTION := "PigeonHole cli is the modern way to send secrets, files or any text securely"
 
 .SILENT: build-deb
 
 copy-gpg:
-	-cp -r /root/.gnupgx /root/.gnupg
+	mkdir -p /root/.gnupg
+	-cp -r /root/.gnupgx/* /root/.gnupg
 
 build-deb: copy-gpg
 	@echo "==> Building for $${XVERSION}"
-	rm -rf $(DEB_TMP_DIR)
-	mkdir -p /release
-	mkdir -p $(DEB_TMP_DIR)/DEBIAN
-	mkdir -p $(DEB_TMP_DIR)/usr/local/bin
-	cp $(BIN) $(DEB_TMP_DIR)/usr/local/bin/pigeonhole
-	echo "Package: $(NAME)" > $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Version: $(XVERSION)" >> $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Section: utils" >> $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Priority: optional" >> $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Architecture: amd64" >> $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Description: PigeonHole cli is the modern way to send secrets, files or any text securely" >> $(DEB_TMP_DIR)/DEBIAN/control
-	echo "Maintainer: PigeonHole <info@pigeono.io>" >> $(DEB_TMP_DIR)/DEBIAN/control
-	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(XVERSION)_amd64.deb 
+	@fpm -s dir -t deb \
+		-n pigeonhole-cli \
+		-v "$${XVERSION}" \
+		--architecture amd64 \
+		--description "$${DESCRIPTION}\n" \
+		--license "MIT" \
+		--maintainer "PigeonHole <info@pigeono.io>" \
+		--url "https://pigeono.io" \
+		/dist/default_linux_amd64_v1/pigeonhole=/usr/local/bin/pigeonhole
 
-package-deb:
-	reprepro -b /repo/apt includedeb noble /release/$(NAME)_*
-	reprepro -b /repo/apt includedeb oracular /release/$(NAME)_*
-	reprepro -b /repo/apt includedeb plucky /release/$(NAME)_*
-	reprepro -b /repo/apt includedeb questing /release/$(NAME)_*
-
-sign-deb:
+# 	cp $(BIN) $(DEB_TMP_DIR)/usr/local/bin/pigeonhole
+# 	echo "Package: $(NAME)" > $(DEB_TMP_DIR)/DEBIAN/control
+# 	echo "Version: $(XVERSION)" >> $(DEB_TMP_DIR)/DEBIAN/control
+# 	echo "Section: utils" >> $(DEB_TMP_DIR)/DEBIAN/control
+# 	echo "Priority: optional" >> $(DEB_TMP_DIR)/DEBIAN/control
+# 	echo "Architecture: amd64" >> $(DEB_TMP_DIR)/DEBIAN/control
+# 	echo "Description: $(DESCRIPTION)" >> $(DEB_TMP_DIR)/DEBIAN/control
+# 	echo "Maintainer: PigeonHole <info@pigeono.io>" >> $(DEB_TMP_DIR)/DEBIAN/control
+# 	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(XVERSION)_amd64.deb 
+	reprepro -b /repo/apt includedeb noble ./$(NAME)_*
+	reprepro -b /repo/apt includedeb oracular ./$(NAME)_*
+	reprepro -b /repo/apt includedeb plucky ./$(NAME)_*
+	reprepro -b /repo/apt includedeb questing ./$(NAME)_*
 	reprepro -b /repo/apt export
 
-release-deb: build-deb package-deb sign-deb
-	cd /repo/apt && git add . && git commit -m"Release $(XVERSION)" && git push
 
-	
-# # -----------------------
-# # RPM
-# # -----------------------
-# build-rpm:
+build-rpm: copy-gpg
+	@mkdir -p /repo/rpm/dist
+	@echo "==> Building rpm"	
+	@fpm -s dir -t rpm \
+		-n pigeonhole-cli \
+		-v "$(XVERSION)" \
+		--architecture amd64 \
+		--description "$${DESCRIPTION}" \
+		--license "MIT" \
+		--maintainer "PigeonHole <info@pigeono.io>" \
+		--url "https://pigeono.io" \
+		/dist/default_linux_amd64_v1/pigeonhole=/usr/local/bin/pigeonhole
+	@mv ./*.rpm /repo/rpm/dist/
+	@createrepo --update /repo/rpm
+	@rpm --define "_gpg_name $(GPG_KEY_ID)" --addsign /repo/rpm/dist/*.rpm
+	@gpg --batch --pinentry-mode=loopback --yes --detach-sign --armor --local-user $(GPG_KEY_ID) /repo/rpm/repodata/repomd.xml
+
+push-repo:
+	cd /repo && git add . && git commit -m"Release $(XVERSION)" && git push
+
+
 # 	@echo "==> Building .rpm"
-# 	mkdir -p $(RPM_DIR)/usr/local/bin
-# 	cp $(BIN) $(RPM_DIR)/usr/local/bin/$(NAME)
-# 	tar czf ~/rpmbuild/SOURCES/$(NAME)-$(VERSION).tar.gz -C $(RPM_DIR)/ .
+# 	mkdir -p $(RPM_TMP_DIR)/usr/local/bin
+# 	cp $(BIN) $(RPM_TMP_DIR)/usr/local/bin/$(NAME)
+	
 # 	cat > ~/rpmbuild/SPECS/$(NAME).spec <<EOF
-# Name:           $(NAME)
-# Version:        $(VERSION)
-# Release:        1%{?dist}
-# Summary:        $(NAME) CLI tool
+# 	Name:           $(NAME)
+# 	Version:        $(VERSION)
+# 	Release:        1%{?dist}
+# 	Summary:        $(NAME) tool
 
-# License:        MIT
-# URL:            https://pigeono.io
-# Source0:        $(NAME)-$(VERSION).tar.gz
-# BuildArch:      x86_64
+# 	License:        MIT
+# 	URL:            https://pigeono.io
+# 	Source0:        $(NAME)-$(XVERSION).tar.gz
+# 	BuildArch:      x86_64
 
-# %description
-# $(NAME) CLI tool built in Go.
+# 	%description
+# 	$(DESCRIPTION)
 
-# %install
-# mkdir -p %{buildroot}/usr/local/bin
-# cp -a usr/local/bin/$(NAME) %{buildroot}/usr/local/bin/$(NAME)
+# 	%install
+# 	mkdir -p %{buildroot}/usr/local/bin
+# 	cp -a usr/local/bin/$(NAME) %{buildroot}/usr/local/bin/$(NAME)
 
-# %files
-# /usr/local/bin/$(NAME)
-# EOF
+# 	%files
+# 	/usr/local/bin/$(NAME)
+# 	EOF
+
 # 	rpmbuild -bb ~/rpmbuild/SPECS/$(NAME).spec
-# 	cp ~/rpmbuild/RPMS/x86_64/$(NAME)-$(VERSION)-1.x86_64.rpm build/
+# 	cp ~/rpmbuild/RPMS/x86_64/$(NAME)-$(VERSION)-1.x86_64.rpm repo/rpm/
 
 # # -----------------------
 # # Chocolatey

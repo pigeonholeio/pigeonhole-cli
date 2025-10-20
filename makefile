@@ -30,15 +30,15 @@ goreleaser-release:
 	GITLAB_TOKEN= goreleaser release --clean --fail-fast --auto-snapshot
 	
 
-release: trigger-git goreleaser-release publish_apt
+
 	
 snapshot:
 	GITLAB_TOKEN= goreleaser build --snapshot --clean
 
 
-version: 
-	./dist/default_darwin_amd64_v1/pigeonhole version
-
+XVERSION := $(shell git tag | sort -r -V | head -n 1)
+version:
+	@echo $(XVERSION)
 
 test-install:
 	-brew update
@@ -76,26 +76,65 @@ test-github:
 
 
 # all: build-deb build-rpm build-choco sign-all
-build_release:
-	docker build --no-cache -t pigeonhole-cli-releaser:latest -f build/Dockerfile .
+build-deb-releaser:
+	@echo "==> Building Deb releaser"
+	@docker build --no-cache -t pigeonhole-cli-releaser-deb:latest -f build/deb.Dockerfile .
+build-rpm-releaser:
+	@echo "==> Building Rpm releaser"
+	@docker build --no-cache -t pigeonhole-cli-releaser-rpm:latest -f build/rpm.Dockerfile .
 
-publish_apt: 
+run_repo_deb: 
 	docker run -it --rm \
-		--env "XVERSION=$$(git tag --points-at HEAD | sort -r | head -n 1)" \
+		--env "XVERSION=$(XVERSION)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
 		-v ./dist:/dist:ro \
 		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
 		-v ./build/makefile:/app/makefile \
-		pigeonhole-cli-releaser:latest make release-deb
-run_repo: 
-	docker run -it --rm \
-		--env "XVERSION=$$(git tag --points-at HEAD | sort -r | head -n 1)" \
+		pigeonhole-cli-releaser-deb:latest
+
+# run_repo_rpm:
+# 	docker run -it --rm \
+# 		--env "XVERSION=$(XVERSION)" \
+# 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
+# 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
+# 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
+# 		-v ./dist:/dist:ro \
+# 		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
+# 		-v ./build/makefile:/app/makefile \
+# 		pigeonhole-cli-releaser-rpm:latest
+
+
+
+build-deb: 
+	@echo "==> Building Deb package"
+	@docker run -it --rm \
+		--env "XVERSION=$(XVERSION)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
 		-v ./dist:/dist:ro \
 		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
 		-v ./build/makefile:/app/makefile \
-		pigeonhole-cli-releaser:latest
+		pigeonhole-cli-releaser-deb:latest make build-deb
+
+build-rpm: 
+	@echo "==> Building RPM package"
+	@docker run -it --rm \
+		--env "XVERSION=$(XVERSION)" \
+		-v $$(realpath ~/.gnupg):/root/.gnupgx \
+		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
+		-v $$(realpath ~/.ssh):/root/.ssh:ro \
+		-v ./dist:/dist:ro \
+		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
+		-v ./build/makefile:/app/makefile \
+		pigeonhole-cli-releaser-rpm:latest make build-rpm
+
+full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm
+push-repo:
+	cd ../repo && git add . && git commit -m"Release $(XVERSION)" && git push
+release-packages: build-deb build-rpm push-repo
+# curl -s https://packages.pigeono.io/gpg.pub --output - > /etc/apt/trusted.gpg.d/pigeonholeio.gpg
+
+release: trigger-git goreleaser-release release-packages
