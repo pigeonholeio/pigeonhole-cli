@@ -49,12 +49,12 @@ build-deb: copy-gpg
 # 	echo "Description: $(DESCRIPTION)" >> $(DEB_TMP_DIR)/DEBIAN/control
 # 	echo "Maintainer: PigeonHole <info@pigeono.io>" >> $(DEB_TMP_DIR)/DEBIAN/control
 # 	dpkg-deb --build $(DEB_TMP_DIR) /release/$(NAME)_$(XVERSION)_amd64.deb 
+
 	reprepro -b /repo/apt includedeb noble ./$(NAME)_*
 	reprepro -b /repo/apt includedeb oracular ./$(NAME)_*
 	reprepro -b /repo/apt includedeb plucky ./$(NAME)_*
 	reprepro -b /repo/apt includedeb questing ./$(NAME)_*
 	reprepro -b /repo/apt export
-
 
 build-rpm: copy-gpg
 	@mkdir -p /repo/rpm/dist
