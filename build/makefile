@@ -29,12 +29,12 @@ copy-gpg:
 	-cp -r /root/.gnupgx/* /root/.gnupg
 
 build-deb: copy-gpg
-	@echo "==> Building for $${XVERSION}"
+	@echo "==> Building for $${XVERSION}: $(DESCRIPTION)"
 	@fpm -s dir -t deb \
 		-n pigeonhole-cli \
 		-v "$${XVERSION}" \
 		--architecture amd64 \
-		--description "$${DESCRIPTION}\n" \
+		--description "$(DESCRIPTION)" \
 		--license "MIT" \
 		--maintainer "PigeonHole <info@pigeono.io>" \
 		--url "https://pigeono.io" \
@@ -63,7 +63,7 @@ build-rpm: copy-gpg
 		-n pigeonhole-cli \
 		-v "$(XVERSION)" \
 		--architecture amd64 \
-		--description "$${DESCRIPTION}" \
+		--description "$(DESCRIPTION)" \
 		--license "MIT" \
 		--maintainer "PigeonHole <info@pigeono.io>" \
 		--url "https://pigeono.io" \

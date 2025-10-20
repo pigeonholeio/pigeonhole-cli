@@ -204,7 +204,7 @@ var authLoginCmd = &cobra.Command{
 			}
 
 			if resp.StatusCode() == http.StatusCreated {
-				fmt.Println("New keys saved")
+				logrus.Debugf("New keys saved")
 			}
 		} else {
 			logrus.Debugf("local key already exists for: %s", email)
