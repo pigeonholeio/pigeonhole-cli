@@ -34,7 +34,7 @@ build-deb: copy-gpg
 		-n pigeonhole-cli \
 		-v "$${XVERSION}" \
 		--architecture amd64 \
-		--description "$(DESCRIPTION)" \
+		--description $(DESCRIPTION) \
 		--license "MIT" \
 		--maintainer "PigeonHole <info@pigeono.io>" \
 		--url "https://pigeono.io" \
@@ -63,7 +63,7 @@ build-rpm: copy-gpg
 		-n pigeonhole-cli \
 		-v "$(XVERSION)" \
 		--architecture amd64 \
-		--description "$(DESCRIPTION)" \
+		--description $(DESCRIPTION) \
 		--license "MIT" \
 		--maintainer "PigeonHole <info@pigeono.io>" \
 		--url "https://pigeono.io" \
