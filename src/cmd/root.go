@@ -58,31 +58,36 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		if resp.StatusCode() == http.StatusOK {
-			if !sameMajorMinor(*resp.JSON200.Version, Version) {
-				fmt.Printf("❌ Client version does not match server version, please update to the same major + minor version.\nClient Version: v%s\nServer Version: v%s\n", Version, *resp.JSON200.Version)
-				os.Exit(0)
+		if resp == nil {
+			fmt.Println("☠️ Invalid response from PigeonHole servers")
+			os.Exit(0)
+		}
 
+		if resp.StatusCode() == http.StatusOK {
+			if resp.JSON200 == nil || resp.JSON200.Version == nil {
+				fmt.Println("☠️ Invalid response format from PigeonHole servers")
+				os.Exit(0)
 			}
+			// if !sameMajorMinor(*resp.JSON200.Version, Version) {
+			// 	fmt.Printf("❌ Client version does not match server version, please update to the same major + minor version.\nClient Version: v%s\nServer Version: v%s\n", Version, *resp.JSON200.Version)
+			// 	os.Exit(0)
+
+			// }
 		} else if resp.StatusCode() == http.StatusForbidden {
-			logrus.Debugf("Message received from server: %s", *resp.JSON403.Message)
-			fmt.Println("🛡️ Invalid Token (Forbidden) - Try signing back in using `pigeonhole auth --help`")
-			os.Exit(0)
+			printInvalidTokenError("Forbidden", resp.JSON403)
 		} else if resp.StatusCode() == http.StatusBadRequest {
-			logrus.Debugf("Message received from server: %s", *resp.JSON400.Message)
-			fmt.Println("🛡️ Invalid Token (Bad Request) - Try signing back in using `pigeonhole auth --help`")
-			os.Exit(0)
+			printInvalidTokenError("Bad Request", resp.JSON400)
 		} else if resp.StatusCode() == http.StatusUnauthorized {
-			logrus.Debugf("Message received from server: %s", *resp.JSON401.Message)
-			fmt.Println("🛡️ Invalid Token (Unauthorized) - Try signing back in using `pigeonhole auth --help`")
-			os.Exit(0)
+			printInvalidTokenError("Unauthorized", resp.JSON401)
 		} else if resp.StatusCode() == http.StatusInternalServerError {
-			logrus.Debugf("Message received from server: %s", *resp.JSON500.Message)
+			if resp.JSON500 != nil && resp.JSON500.Message != nil {
+				logrus.Debugf("Message received from server: %s", *resp.JSON500.Message)
+			}
 			fmt.Println("🌭 The PigeonHole API is misbehaving. Grab a tea, it'll be fixed soon!")
 			os.Exit(0)
 		}
 
-		if utils.KeysExist() != true && viper.GetString("auth.token") != "" {
+		if utils.KeysExist() != true && viper.GetString("auth.accesstoken") != "" {
 			fmt.Println("WARNING: No keys exist yet! Set one with pigeonhole-cli keys init")
 		}
 	},
@@ -166,4 +171,41 @@ func SetLogger() {
 	if verbose {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
+}
+
+func printInvalidTokenError(statusName string, errorMsg *sdk.GeneralMessage) {
+	var errDetails string
+	if errorMsg != nil && errorMsg.Message != nil {
+		errDetails = *errorMsg.Message
+	}
+
+	logrus.Debugf("Token validation failed with status: %s", statusName)
+	logrus.Debugf("Server error message: %s", errDetails)
+
+	// Log token info for debugging
+	if token := viper.GetString("auth.token"); token != "" {
+		logrus.Debugf("Token exists in config: yes")
+		logrus.Debugf("Token length: %d bytes", len(token))
+		if len(token) > 50 {
+			logrus.Debugf("Token prefix (first 50 chars): %s...", token[:50])
+		}
+	} else {
+		logrus.Debugf("Token exists in config: no")
+	}
+
+	// Log server info
+	if apiURL := viper.GetString("api.url"); apiURL != "" {
+		logrus.Debugf("API URL: %s", apiURL)
+	}
+	if server := viper.GetString("server.url"); server != "" {
+		logrus.Debugf("Server URL: %s", server)
+	}
+
+	if errDetails != "" {
+		fmt.Printf("🛡️ Invalid Token (%s): %s\nTry signing back in using `pigeonhole auth --help`\n", statusName, errDetails)
+	} else {
+		fmt.Printf("🛡️ Invalid Token (%s) - Try signing back in using `pigeonhole auth --help`\n", statusName)
+	}
+	fmt.Println("💡 Run with --debug flag for more information")
+	os.Exit(0)
 }

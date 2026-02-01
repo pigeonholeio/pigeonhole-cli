@@ -28,10 +28,10 @@ var secretsCmd = &cobra.Command{
 	},
 }
 
-// collectCmd represents the collect command
-var SecretsCollectCmd = &cobra.Command{
-	Use:     "collect",
-	Aliases: []string{"c", "download", "get", "g", "fetch", "f"},
+// RetrieveCmd represents the collect command
+var SecretsRetrieveCmd = &cobra.Command{
+	Use:     "retrieve",
+	Aliases: []string{"r", "download", "get", "g", "fetch", "f"},
 	Short:   "Retrieve and decrypt secrets",
 	Long:    `Retrieve and decrypt secrets`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -55,7 +55,7 @@ var SecretsCollectCmd = &cobra.Command{
 		case http.StatusTemporaryRedirect:
 			logrus.Debugf("secret download url found: %s", *downloadResp.JSON307.DownloadUrl)
 
-			fmt.Printf("done!\nCollecting and decrypting secret %s...", *downloadResp.JSON307.SecretReference)
+			fmt.Printf("done!\nRetrieving and decrypting secret %s...", *downloadResp.JSON307.SecretReference)
 			tmpFileName, _ := utils.DownloadFile(downloadResp.JSON307.DownloadUrl)
 			inputBytes, err := os.ReadFile(tmpFileName)
 			if err != nil {
@@ -318,7 +318,7 @@ var SecretsDropCmd = &cobra.Command{
 				logrus.Debugln(errx.Error())
 				fmt.Println("Failed to upload secret!")
 			} else {
-				fmt.Printf("done!\nSecret encrypted, posted and is en route as %s! 🚀\n\nA lot of time, effort and money goes into supporting PigeonHole.\nIf you like the service why not give a thank you with https://buymeacoffee.com/pigeonholeio\n", *secretEnvelopeResponse.JSON201.S3Info.Fields.XAmzMetaReference)
+				fmt.Printf("done!\nSecret encrypted, posted and is en route as %s! 🚀\n\nA lot of time and effort goes into supporting PigeonHole.\nIf you like and find the service helpful, find out how you can support it at https://pigeono.io/about/contribute/\n", *secretEnvelopeResponse.JSON201.S3Info.Fields.XAmzMetaReference)
 			}
 			utils.ShredFile(filename, 3)
 		} else if secretEnvelopeResponse.StatusCode() == http.StatusNotAcceptable {
@@ -421,15 +421,15 @@ var (
 
 func init() {
 	rootCmd.AddCommand(secretsCmd)
-	secretsCmd.AddCommand(SecretsCollectCmd)
+	secretsCmd.AddCommand(SecretsRetrieveCmd)
 	secretsCmd.AddCommand(SecretsDeleteCmd)
 	secretsCmd.AddCommand(SecretsDropCmd)
 	secretsCmd.AddCommand(SecretsListCmd)
 	secretsCmd.AddCommand(SecretsCountCmd)
 
-	SecretsCollectCmd.Flags().StringVarP(&downloadSecretPath, "filepath", "f", "", "The path where to download, decrypt and extract your secret")
-	SecretsCollectCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "The id or reference of the secret")
-	SecretsCollectCmd.MarkPersistentFlagRequired("reference")
+	SecretsRetrieveCmd.Flags().StringVarP(&downloadSecretPath, "filepath", "f", "", "The path where to download, decrypt and extract your secret")
+	SecretsRetrieveCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "The id or reference of the secret")
+	SecretsRetrieveCmd.MarkPersistentFlagRequired("reference")
 
 	SecretsDeleteCmd.Flags().BoolVarP(&deleteAllSecrets, "all", "a", false, "Delete all secrets that you have sent/received")
 	SecretsDeleteCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "The id or reference of the secret")

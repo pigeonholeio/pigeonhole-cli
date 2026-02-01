@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/pigeonholeio/common/utils"
 	"github.com/sirupsen/logrus"
@@ -16,8 +17,10 @@ type PigeonHoleConfig struct {
 }
 
 type ApiConfig struct {
-	Url         *string `mapstructure:"url"`
-	AccessToken *string `mapstructure:"accessToken"`
+	Url          *string `mapstructure:"url"`
+	AccessToken  *string `mapstructure:"accessToken"`
+	RefreshToken *string `mapstructure:"refreshToken"`
+	TokenExpiry  *int64  `mapstructure:"tokenExpiry"`
 }
 type UserIdentity struct {
 	// AccessToken *string  `ma	pstructure:"accessToken"`
@@ -226,4 +229,29 @@ func (c *PigeonHoleConfig) GetUserName() (string, error) {
 }
 func (c *PigeonHoleConfig) GetUserEmail() (string, error) {
 	return c.getClaimByName("email")
+}
+
+// IsTokenExpired checks if the access token has expired
+func (c *PigeonHoleConfig) IsTokenExpired() bool {
+	if c == nil || c.API == nil || c.API.TokenExpiry == nil {
+		return false
+	}
+	return time.Now().Unix() > *c.API.TokenExpiry
+}
+
+// IsTokenNearExpiry checks if token is near expiry (within 5 minutes)
+func (c *PigeonHoleConfig) IsTokenNearExpiry() bool {
+	if c == nil || c.API == nil || c.API.TokenExpiry == nil {
+		return false
+	}
+	expiryTime := time.Unix(*c.API.TokenExpiry, 0)
+	return time.Now().Add(5 * time.Minute).After(expiryTime)
+}
+
+// CanRefresh checks if refresh token is available
+func (c *PigeonHoleConfig) CanRefresh() bool {
+	if c == nil || c.API == nil || c.API.RefreshToken == nil {
+		return false
+	}
+	return *c.API.RefreshToken != ""
 }

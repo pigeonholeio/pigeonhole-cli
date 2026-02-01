@@ -61,11 +61,13 @@ type OIDCProvider struct {
 	Scopes        *[]string `json:"scopes,omitempty"`
 	TokenUrl      *string   `json:"tokenUrl,omitempty"`
 	UserInfoUrl   *string   `json:"userInfoUrl"`
+	Audience   *string   `json:"audience"`
 }
 
 // OIDCProviderToken This is used to pass the IdP issued id/access token to exchange it for a PigeonHole access token
 type OIDCProviderToken struct {
 	AccessToken *string `json:"accessToken,omitempty"`
+	Audience    *string `json:"audience,omitempty"`
 }
 
 // Secret defines model for Secret.

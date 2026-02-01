@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/auth"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // loginCmd represents the login command
@@ -108,9 +110,19 @@ var authLoginCmd = &cobra.Command{
 			return
 		}
 
+		if oidcProviders == nil || oidcProviders.JSON200 == nil {
+			fmt.Println("☠️ Invalid response from PigeonHole servers - no providers available")
+			return
+		}
+
 		var foundProvider sdk.OIDCProvider
 
 		if UseOIDCProvider == "" { // assumes not set
+			if oidcProviders.JSON200.Default == nil {
+				fmt.Println("☠️ No default OIDC provider configured")
+				fmt.Printf("To view list of available Identity Providers use:\n	pigeonhole auth list\n\n")
+				return
+			}
 			fmt.Printf("To view list of available Identity Providers use:\n	pigeonhole auth list\n\n")
 			fmt.Printf("Using default provider: %s\n", *oidcProviders.JSON200.Default)
 			UseOIDCProvider = *oidcProviders.JSON200.Default
@@ -131,7 +143,19 @@ var authLoginCmd = &cobra.Command{
 
 		logrus.Debugf("Using the provider: %s\n", UseOIDCProvider)
 
-		idPTok, err := auth.AuthenticateWithDeviceCode(GlobalCtx, *foundProvider.ClientID, &foundProvider)
+		// Extract audience from PigeonHole API URL for IdP authentication
+		// var audience string
+		// if PigeonHoleConfig.API != nil && PigeonHoleConfig.API.Url != nil && *PigeonHoleConfig.API.Url != "" {
+		// 	if parsedURL, err := url.Parse(*PigeonHoleConfig.API.Url); err == nil {
+		// 		audience = parsedURL.Scheme + "://" + parsedURL.Host
+		// 		logrus.Debugf("Audience determined: %s", audience)
+		// 	} else {
+		// 		logrus.Warnf("Failed to parse API URL for audience: %v", err)
+		// 	}
+		// }
+		audience := "pigeonhole-toad"
+
+		idPTok, err := auth.AuthenticateWithDeviceCode(GlobalCtx, *foundProvider.ClientID, &foundProvider, audience)
 		if err != nil {
 			fmt.Printf("☠️  Could not authenticate with the identity provider: %s\n", *foundProvider.Name)
 			logrus.Debugln(err.Error())
@@ -140,24 +164,54 @@ var authLoginCmd = &cobra.Command{
 		logrus.Debugf("IdP Access Token: %s", idPTok.AccessToken)
 		logrus.Debugf("IdP Token Type: %s", idPTok.TokenType)
 		logrus.Debugf("IdP Token Expiry: %s", idPTok.Expiry)
-		phTok := sdk.OIDCProviderToken{
-			AccessToken: &idPTok.AccessToken,
+
+		// Store IdP access token directly
+		PigeonHoleConfig.API.AccessToken = &idPTok.AccessToken
+		logrus.Debugf("IdP Access Token stored locally")
+
+		// Store IdP refresh token if available
+		if idPTok.RefreshToken != "" {
+			PigeonHoleConfig.API.RefreshToken = &idPTok.RefreshToken
+			logrus.Debugf("IdP Refresh Token stored")
 		}
-		pigeonHoleTokenresp, err := PigeonHoleClient.PostAuthOidcHandlerProviderWithResponse(GlobalCtx, UseOIDCProvider, phTok)
-		//  := PigeonHoleClient.PostAuthOidcCleverHandlerWithResponse(GlobalCtx, &foundProvider, &phTok)
 
-		if err != nil {
-			logrus.Debugln(err.Error())
-			fmt.Println("☠️  Error exchanging IdP token with PigeonHole")
-			return
+		// Persist IdP token to config file
+		viper.Set("auth.token", idPTok.AccessToken)
+		if err := viper.WriteConfig(); err != nil {
+			logrus.Warnf("Failed to persist token to config file: %v", err)
 		}
 
-		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
-		email, _ := PigeonHoleConfig.GetUserId()
-		name, _ := PigeonHoleConfig.GetUserName()
-		logrus.Debugf("PigeonHole Access Token Received for %s: %s", email, pigeonHoleTokenresp.JSON201.AccessToken)
+		// Extract user info and expiry from IdP token
+		email := ""
+		name := ""
+		if claims, err := utils.DecodePigeonHoleJWT(*PigeonHoleConfig.API.AccessToken); err == nil {
+			// Try to extract email from various claims
+			if emailClaim, ok := claims["email"].(string); ok && emailClaim != "" {
+				email = emailClaim
+			} else if subClaim, ok := claims["sub"].(string); ok && subClaim != "" {
+				email = subClaim
+			}
 
-		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig, Version)
+			// Try to extract name from various claims
+			if nameClaim, ok := claims["name"].(string); ok && nameClaim != "" {
+				name = nameClaim
+			} else if prefUsernameClaim, ok := claims["preferred_username"].(string); ok && prefUsernameClaim != "" {
+				name = prefUsernameClaim
+			}
+
+			// Extract token expiry
+			if exp, ok := claims["exp"]; ok {
+				if expFloat, ok := exp.(float64); ok {
+					expInt64 := int64(expFloat)
+					PigeonHoleConfig.API.TokenExpiry = &expInt64
+					logrus.Debugf("Token expiry extracted: %d (expires at %s)", expInt64, time.Unix(expInt64, 0))
+				}
+			}
+		} else {
+			logrus.Debugf("Failed to decode IdP token claims: %v", err)
+		}
+
+		logrus.Debugf("IdP token obtained for %s", email)
 
 		if PigeonHoleConfig.Identity == nil {
 			logrus.Debugf("Identity is nil")
@@ -260,8 +314,8 @@ var authLoginCmd = &cobra.Command{
 			return
 		}
 
-		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
-		PigeonHoleConfig.API.AccessToken = &pigeonHoleTokenresp.JSON201.AccessToken
+		// AccessToken, RefreshToken, and TokenExpiry have already been set above
+		// during token exchange and JWT decoding
 		err = PigeonHoleConfig.Save(v, &fullConfigPath)
 		if err != nil {
 			logrus.Debugf("config file not saved: %s", err.Error())

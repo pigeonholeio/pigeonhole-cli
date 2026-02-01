@@ -98,13 +98,27 @@ func PigeonholeClient(cfg *config.PigeonHoleConfig, version string) *ClientWithR
 	}
 
 	if cfg != nil && cfg.API != nil && cfg.API.AccessToken != nil {
-		bearerTokenProvider, err := securityprovider.NewSecurityProviderBearerToken(*cfg.API.AccessToken)
+		_, err := securityprovider.NewSecurityProviderBearerToken(*cfg.API.AccessToken)
 		if err != nil {
-			logrus.Fatalf("failed to create bearer token provider: %w", err)
+			logrus.Fatalf("failed to create bearer token provider: %v", err)
 			return nil
 		}
 		reqEditor = func(ctxReq context.Context, req *http.Request) error {
 			logrus.Debugf("Making %s request to %s", req.Method, req.URL)
+
+			// Check if token needs refresh (proactive approach)
+			if cfg.IsTokenNearExpiry() {
+				logrus.Debugf("Token is near expiry, attempting refresh before request")
+				// Note: Token refresh will be handled at a higher level in the command execution
+				// This is just a warning/logging point
+			}
+
+			// Update bearer token provider with current token in case it was refreshed
+			bearerTokenProvider, err := securityprovider.NewSecurityProviderBearerToken(*cfg.API.AccessToken)
+			if err != nil {
+				return fmt.Errorf("failed to create bearer token provider: %w", err)
+			}
+
 			if err := bearerTokenProvider.Intercept(ctxReq, req); err != nil {
 				return err
 			}
@@ -119,7 +133,7 @@ func PigeonholeClient(cfg *config.PigeonHoleConfig, version string) *ClientWithR
 		WithRequestEditorFn(reqEditor),
 	)
 	if err != nil {
-		logrus.Fatalf("failed to create pigeonhole client: %w", err)
+		logrus.Fatalf("failed to create pigeonhole client: %v", err)
 		return nil
 	}
 	return client
