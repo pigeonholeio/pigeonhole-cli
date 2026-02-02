@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func AuthenticateWithDeviceCode(ctx context.Context, clientId string, provider *sdk.OIDCProvider, audience string) (*oauth2.Token, error) {
+func AuthenticateWithDeviceCode(ctx context.Context, clientId string, provider *sdk.OIDCProvider) (*oauth2.Token, error) {
 
 	logrus.Debugf("Using following provider auth url: %s\n", *provider.AuthUrl)
 	logrus.Debugf("Using following provider token url: %s\n", *provider.TokenUrl)
@@ -28,15 +28,15 @@ func AuthenticateWithDeviceCode(ctx context.Context, clientId string, provider *
 	}
 
 	logrus.Debugf("Calling Device Auth auth url: %s\n", *provider.DeviceAuthURL)
-	logrus.Debugf("Using audience: %s\n", audience)
-	da, err := conf.DeviceAuth(ctx, oauth2.SetAuthURLParam("audience", audience))
+	logrus.Debugf("Using audience: %s\n", *provider.Audience)
+	da, err := conf.DeviceAuth(ctx, oauth2.SetAuthURLParam("audience", *provider.Audience))
 	if err != nil {
 		logrus.Debugln(err.Error())
 		return nil, err
 	}
 	fmt.Printf("Go to %s and enter code: %s\n", da.VerificationURI, da.UserCode)
 
-	tok, err := conf.DeviceAccessToken(ctx, da, oauth2.SetAuthURLParam("audience", audience))
+	tok, err := conf.DeviceAccessToken(ctx, da, oauth2.SetAuthURLParam("audience", *provider.Audience))
 	if err != nil {
 		return nil, err
 	}

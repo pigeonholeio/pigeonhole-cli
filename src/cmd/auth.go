@@ -49,8 +49,11 @@ var authListCmd = &cobra.Command{
 			fmt.Println("Something went wrong - could not retrieve a list of OIDC Providers")
 			return
 		}
-		if len(*oidcProviders.JSON200.OidcProviders) > 0 {
-			defaultProvider := *oidcProviders.JSON200.Default
+		if oidcProviders.JSON200 != nil && oidcProviders.JSON200.OidcProviders != nil && len(*oidcProviders.JSON200.OidcProviders) > 0 {
+			defaultProvider := ""
+			if oidcProviders.JSON200.Default != nil {
+				defaultProvider = *oidcProviders.JSON200.Default
+			}
 			fmt.Println("Available identity providers (✅ is default):")
 
 			for index, provider := range *oidcProviders.JSON200.OidcProviders {
@@ -70,7 +73,9 @@ var authListCmd = &cobra.Command{
 			fmt.Printf("or with a specific provider;\n")
 			fmt.Printf("\n	pigeonhole auth login --provider %s\n\n", defaultProvider)
 		} else {
-			logrus.Debugln(oidcProviders.JSON200.Message)
+			if oidcProviders.JSON200 != nil && oidcProviders.JSON200.Message != nil {
+				logrus.Debugln(*oidcProviders.JSON200.Message)
+			}
 			fmt.Println("No providers available")
 		}
 	},
@@ -143,19 +148,7 @@ var authLoginCmd = &cobra.Command{
 
 		logrus.Debugf("Using the provider: %s\n", UseOIDCProvider)
 
-		// Extract audience from PigeonHole API URL for IdP authentication
-		// var audience string
-		// if PigeonHoleConfig.API != nil && PigeonHoleConfig.API.Url != nil && *PigeonHoleConfig.API.Url != "" {
-		// 	if parsedURL, err := url.Parse(*PigeonHoleConfig.API.Url); err == nil {
-		// 		audience = parsedURL.Scheme + "://" + parsedURL.Host
-		// 		logrus.Debugf("Audience determined: %s", audience)
-		// 	} else {
-		// 		logrus.Warnf("Failed to parse API URL for audience: %v", err)
-		// 	}
-		// }
-		audience := "pigeonhole-toad"
-
-		idPTok, err := auth.AuthenticateWithDeviceCode(GlobalCtx, *foundProvider.ClientID, &foundProvider, audience)
+		idPTok, err := auth.AuthenticateWithDeviceCode(GlobalCtx, *foundProvider.ClientID, &foundProvider)
 		if err != nil {
 			fmt.Printf("☠️  Could not authenticate with the identity provider: %s\n", *foundProvider.Name)
 			logrus.Debugln(err.Error())
@@ -292,25 +285,37 @@ var authLoginCmd = &cobra.Command{
 					logrus.Debugf("Response code: %d", resp.StatusCode())
 					switch resp.StatusCode() {
 					case http.StatusBadRequest:
-						logrus.Debugln(*resp.JSON400.Message)
+						if resp.JSON400 != nil && resp.JSON400.Message != nil {
+							logrus.Debugln(*resp.JSON400.Message)
+						}
 					case http.StatusInternalServerError:
-						logrus.Debugln(*resp.JSON500.Message)
+						if resp.JSON500 != nil && resp.JSON500.Message != nil {
+							logrus.Debugln(*resp.JSON500.Message)
+						}
 					}
 					fmt.Println("Something went wrong")
 					return
 				}
 			} else {
-				logrus.Debugf("response from keys validation: %s\n", *keysResponse.JSON200.Message)
-				for i, k := range *keysResponse.JSON200.Keys {
-					logrus.Debugf("%d: %s\n", i, *k.Thumbprint)
+				if keysResponse.JSON200 != nil && keysResponse.JSON200.Message != nil {
+					logrus.Debugf("response from keys validation: %s\n", *keysResponse.JSON200.Message)
+				}
+				if keysResponse.JSON200 != nil && keysResponse.JSON200.Keys != nil {
+					for i, k := range *keysResponse.JSON200.Keys {
+						logrus.Debugf("%d: %s\n", i, *k.Thumbprint)
 
+					}
 				}
 			}
 
 		case http.StatusInternalServerError:
-			logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON500.Message)
+			if keysResponse.JSON500 != nil && keysResponse.JSON500.Message != nil {
+				logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON500.Message)
+			}
 		case http.StatusBadRequest:
-			logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON500.Message)
+			if keysResponse.JSON500 != nil && keysResponse.JSON500.Message != nil {
+				logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON500.Message)
+			}
 			return
 		}
 

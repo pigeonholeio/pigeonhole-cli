@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pigeonholeio/common/utils"
@@ -38,6 +37,28 @@ var SecretsRetrieveCmd = &cobra.Command{
 
 		fmt.Printf("Fetching secret envelope...")
 		downloadResp, _ := PigeonHoleClient.GetSecretSecretIdDownloadWithResponse(GlobalCtx, secretQueryReference)
+
+		// Check for 307 redirect with valid response
+		if downloadResp.StatusCode() != http.StatusTemporaryRedirect || downloadResp.JSON307 == nil {
+			// Handle error cases for non-307 responses
+			switch downloadResp.StatusCode() {
+			case http.StatusNotFound:
+				if downloadResp.JSON404 != nil && downloadResp.JSON404.Message != nil {
+					logrus.Debugf("Message from PigeonHole: %s", *downloadResp.JSON404.Message)
+				}
+				fmt.Println("No secret found")
+			case http.StatusBadRequest:
+				if downloadResp.JSON400 != nil && downloadResp.JSON400.Message != nil {
+					logrus.Debugf("Message from PigeonHole: %s", *downloadResp.JSON400.Message)
+				} else {
+					fmt.Println("Bad request")
+				}
+			default:
+				fmt.Println("Failed to fetch secret")
+			}
+			return
+		}
+
 		if downloadSecretPath == "" {
 			downloadSecretPath = fmt.Sprintf("%s/%s", "decrypted", *downloadResp.JSON307.SecretReference)
 		}
@@ -51,55 +72,40 @@ var SecretsRetrieveCmd = &cobra.Command{
 			return
 		}
 		// var filename string
-		switch downloadResp.StatusCode() {
-		case http.StatusTemporaryRedirect:
-			logrus.Debugf("secret download url found: %s", *downloadResp.JSON307.DownloadUrl)
+		logrus.Debugf("secret download url found: %s", *downloadResp.JSON307.DownloadUrl)
 
-			fmt.Printf("done!\nRetrieving and decrypting secret %s...", *downloadResp.JSON307.SecretReference)
-			tmpFileName, _ := utils.DownloadFile(downloadResp.JSON307.DownloadUrl)
-			inputBytes, err := os.ReadFile(tmpFileName)
+		fmt.Printf("done!\nRetrieving and decrypting secret %s...", *downloadResp.JSON307.SecretReference)
+		tmpFileName, _ := utils.DownloadFile(downloadResp.JSON307.DownloadUrl)
+		inputBytes, err := os.ReadFile(tmpFileName)
+		if err != nil {
+			fmt.Printf("\nFailed!")
+			return
+		}
+		var decryptedFilePath string
+
+		// decrypt the bytes to the desired path
+		decrypted := false
+		for _, i := range PigeonHoleConfig.Identity {
+			decodedKey, _ := i.GPGKey.DecodedPrivateKey()
+			decryptedFilePath, err = utils.DecryptBytes(inputBytes, &downloadSecretPath, &decodedKey)
+
 			if err != nil {
-				fmt.Printf("\nFailed!")
+				logrus.Debugf("nFailed to Decrypt bytes: %s", err.Error())
 				return
 			}
-			var decryptedFilePath string
-
-			// decrypt the bytes to the desired path
-			decrypted := false
-			for _, i := range PigeonHoleConfig.Identity {
-				decodedKey, _ := i.GPGKey.DecodedPrivateKey()
-				decryptedFilePath, err = utils.DecryptBytes(inputBytes, &downloadSecretPath, &decodedKey)
-
-				if err != nil {
-					logrus.Debugf("nFailed to Decrypt bytes: %s", err.Error())
-					return
-				}
-				decrypted = true
-				break
-
-			}
-			if decrypted != true {
-				fmt.Println("No valid decryption key found")
-				return
-			}
-			logrus.Debugf("decryptedFilePath: %s", decryptedFilePath)
-
-			utils.DecompressFile(decryptedFilePath, downloadSecretPath)
-			utils.ShredFile(decryptedFilePath, 3)
-			fmt.Printf("done!\n📨 Decrypted %s to %s\n", *downloadResp.JSON307.SecretReference, downloadSecretPath)
-		case http.StatusNotFound:
-			logrus.Debugf("Message from PigeonHole: %s", *downloadResp.JSON404.Message)
-			fmt.Println("No secret found")
-		case http.StatusBadRequest:
-			logrus.Debugf("Message from PigeonHole: %s", *downloadResp.JSON400.Message)
-			if strings.Contains(*downloadResp.JSON400.Message, "more than one secret found") {
-				fmt.Println("More than one secret found")
-			} else {
-				fmt.Println("Something went wrong")
-
-			}
+			decrypted = true
+			break
 
 		}
+		if decrypted != true {
+			fmt.Println("No valid decryption key found")
+			return
+		}
+		logrus.Debugf("decryptedFilePath: %s", decryptedFilePath)
+
+		utils.DecompressFile(decryptedFilePath, downloadSecretPath)
+		utils.ShredFile(decryptedFilePath, 3)
+		fmt.Printf("done!\n📨 Decrypted %s to %s\n", *downloadResp.JSON307.SecretReference, downloadSecretPath)
 	},
 }
 
@@ -126,20 +132,20 @@ var SecretsCountCmd = &cobra.Command{
 
 		logrus.Debugf("PigeonHole return status: %d", code)
 
-		if *f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
+		if f.StatusCode() == http.StatusOK && f.JSON200 != nil && f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON200.Message)
 			fmt.Printf("Secret count: %d\n", len(*f.JSON200.Secrets))
 			// utils.OutputData(sdk.ToSecretViewSlice(*f.JSON200.Secrets))
 
-		} else if f.StatusCode() == 400 {
+		} else if f.StatusCode() == 400 && f.JSON400 != nil && f.JSON400.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON400.Message)
-		} else if f.StatusCode() == 401 {
+		} else if f.StatusCode() == 401 && f.JSON401 != nil && f.JSON401.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON401.Message)
-		} else if f.StatusCode() == 403 {
+		} else if f.StatusCode() == 403 && f.JSON403 != nil && f.JSON403.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON403.Message)
-		} else if f.StatusCode() == 404 {
+		} else if f.StatusCode() == 404 && f.JSON404 != nil && f.JSON404.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON404.Message)
-		} else if f.StatusCode() == 500 {
+		} else if f.StatusCode() == 500 && f.JSON500 != nil && f.JSON500.Message != nil {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON500.Message)
 			fmt.Printf("failed: %s\n", *f.JSON500.Message)
 		} else {
@@ -172,20 +178,20 @@ By default only received secrets are listed, use --all to list sent and active s
 
 		logrus.Debugf("PigeonHole return status: %d", code)
 
-		if f.StatusCode() != http.StatusInternalServerError && *f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
+		if f.StatusCode() == http.StatusOK && f.JSON200 != nil && f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON200.Message)
 
 			utils.OutputData(sdk.ToSecretViewSlice(*f.JSON200.Secrets))
 
-		} else if f.StatusCode() == 400 {
+		} else if f.StatusCode() == 400 && f.JSON400 != nil && f.JSON400.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON400.Message)
-		} else if f.StatusCode() == 401 {
+		} else if f.StatusCode() == 401 && f.JSON401 != nil && f.JSON401.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON401.Message)
-		} else if f.StatusCode() == 403 {
+		} else if f.StatusCode() == 403 && f.JSON403 != nil && f.JSON403.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON403.Message)
-		} else if f.StatusCode() == 404 {
+		} else if f.StatusCode() == 404 && f.JSON404 != nil && f.JSON404.Message != nil {
 			fmt.Printf("failed: %s\n", *f.JSON404.Message)
-		} else if f.StatusCode() == 500 {
+		} else if f.StatusCode() == 500 && f.JSON500 != nil && f.JSON500.Message != nil {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON500.Message)
 			fmt.Printf("failed: %s\n", *f.JSON500.Message)
 		} else {

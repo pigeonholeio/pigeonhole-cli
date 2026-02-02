@@ -121,10 +121,10 @@ to quickly create a Cobra application.`,
 		x, err := PigeonHoleClient.GetUserMeKeyWithResponse(GlobalCtx)
 		if err != nil {
 			// fmt.Printf("ERROR: %s", err.Error())
-			fmt.Println("Something went wrong - could not list secrets!")
+			fmt.Println("Something went wrong - could not list keys!")
 			logrus.Debugln(err.Error())
 		}
-		if x.StatusCode() == 200 {
+		if x.StatusCode() == 200 && x.JSON200 != nil && x.JSON200.Keys != nil {
 			if len(*x.JSON200.Keys) > 0 {
 				utils.OutputData(x.JSON200.Keys)
 			} else {

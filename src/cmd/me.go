@@ -16,6 +16,8 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/pigeonholeio/common/utils"
 
 	"github.com/spf13/cobra"
@@ -70,7 +72,11 @@ var MeShowCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Context()
 		me, _ := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
-		utils.OutputData(me.JSON200.User)
+		if me.StatusCode() == 200 && me.JSON200 != nil && me.JSON200.User != nil {
+			utils.OutputData(me.JSON200.User)
+		} else {
+			fmt.Println("Failed to retrieve user information")
+		}
 	},
 }
 
