@@ -11,12 +11,6 @@ generate-openapi-sdk:
 	oapi-codegen -generate types -package sdk -o ${SDK_PATH}/types/types.gen.go ${OPENAPI_PATH}
 
 
-
-secret-drop-file:
-	go run main.go secret drop -r rhys@planesailing.io -f ~/Downloads/x.mp4
-
-bump-tag:
-	./bump-tag.sh
 	
 trigger-git:
 	./bump-version.sh
