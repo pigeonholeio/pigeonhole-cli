@@ -30,9 +30,6 @@ snapshot:
 	GITLAB_TOKEN= goreleaser build --snapshot --clean
 
 
-XVERSION := $(shell git tag | sort -r -V | head -n 1)
-version:
-	@echo $(XVERSION)
 
 test-install:
 	-brew update
@@ -79,7 +76,7 @@ build-rpm-releaser:
 
 run_repo_deb: 
 	docker run -it --rm \
-		--env "XVERSION=$(XVERSION)" \
+		--env "XVERSION=$(shell git tag | sort -r -V | head -n 1)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -90,7 +87,7 @@ run_repo_deb:
 
 # run_repo_rpm:
 # 	docker run -it --rm \
-# 		--env "XVERSION=$(XVERSION)" \
+# 		--env "XVERSION=$(shell git tag | sort -r -V | head -n 1)" \
 # 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 # 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 # 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -104,7 +101,7 @@ run_repo_deb:
 build-deb: 
 	@echo "==> Building Deb package"
 	@docker run -it --rm \
-		--env "XVERSION=$(XVERSION)" \
+		--env "XVERSION=$(shell git tag | sort -r -V | head -n 1)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -116,7 +113,7 @@ build-deb:
 build-rpm: 
 	@echo "==> Building RPM package"
 	@docker run -it --rm \
-		--env "XVERSION=$(XVERSION)" \
+		--env "XVERSION=$(shell git tag | sort -r -V | head -n 1)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -127,7 +124,7 @@ build-rpm:
 
 full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm
 push-repo:
-	cd ../repo && git add . && git commit -m"Release $(XVERSION)" && git push
+	cd ../repo && git add . && git commit -m"Release $(shell git tag | sort -r -V | head -n 1)" && git push
 release-packages: build-deb build-rpm push-repo
 # curl -s https://packages.pigeono.io/gpg.pub --output - > /etc/apt/trusted.gpg.d/pigeonholeio.gpg
 
