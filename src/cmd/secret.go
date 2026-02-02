@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pigeonholeio/common/utils"
@@ -85,21 +86,81 @@ var SecretsRetrieveCmd = &cobra.Command{
 
 		// decrypt the bytes to the desired path
 		decrypted := false
+		var decryptionErrors []string
+
 		for _, i := range PigeonHoleConfig.Identity {
 			decodedKey, _ := i.GPGKey.DecodedPrivateKey()
 			decryptedFilePath, err = utils.DecryptBytes(inputBytes, &downloadSecretPath, &decodedKey)
 
 			if err != nil {
-				logrus.Debugf("Failed to Decrypt bytes: %s", err.Error())
-				fmt.Printf("Failed to Decrypt: %s\n", err.Error())
-				return
+				logrus.Debugf("Failed to decrypt with key: %s", err.Error())
+				decryptionErrors = append(decryptionErrors, err.Error())
+				continue
 			}
 			decrypted = true
 			break
-
 		}
-		if decrypted != true {
-			fmt.Println("No valid decryption key found")
+
+		if !decrypted {
+			fmt.Println("Failed to decrypt secret!")
+			fmt.Println()
+
+			// Check if we have any keys at all
+			if len(PigeonHoleConfig.Identity) == 0 {
+				fmt.Println("❌ No GPG keys found in your configuration.")
+				fmt.Println()
+				fmt.Println("To use PigeonHole, you need to initialize your GPG keys:")
+				fmt.Println("  pigeonhole keys init")
+				return
+			}
+
+			// Check if all decryption attempts failed due to incorrect key errors
+			hasIncorrectKeyError := false
+			for _, errMsg := range decryptionErrors {
+				if strings.Contains(strings.ToLower(errMsg), "incorrect key") ||
+					strings.Contains(strings.ToLower(errMsg), "bad decrypt") ||
+					strings.Contains(strings.ToLower(errMsg), "decryption failed") {
+					hasIncorrectKeyError = true
+					break
+				}
+			}
+
+			if hasIncorrectKeyError {
+				fmt.Println("⚠️  The secret was encrypted with a different GPG key pair.")
+				fmt.Println()
+				fmt.Println("This can happen if:")
+				fmt.Println("  • The secret was encrypted on a different device")
+				fmt.Println("  • Your GPG keys were regenerated after the secret was sent")
+				fmt.Println("  • Someone encrypted the secret for a different recipient")
+				fmt.Println()
+				fmt.Println("Current GPG keys available for decryption:")
+				for email, identity := range PigeonHoleConfig.Identity {
+					if identity.GPGKey != nil && identity.GPGKey.Thumbprint != nil {
+						fmt.Printf("  • %s (thumbprint: %s)\n", email, *identity.GPGKey.Thumbprint)
+					} else {
+						fmt.Printf("  • %s\n", email)
+					}
+				}
+				fmt.Println()
+				fmt.Println("To resolve this:")
+				fmt.Println("  1. Verify the secret was encrypted for your email address")
+				fmt.Println("  2. Check if you have the correct GPG keys from the device where the secret was sent")
+				fmt.Println("  3. You may need to ask the sender to re-encrypt the secret with your current public key")
+			} else {
+				fmt.Println("❌ Unable to decrypt the secret with any available GPG keys.")
+				fmt.Println()
+				if len(decryptionErrors) > 0 {
+					fmt.Println("Decryption errors:")
+					for i, errMsg := range decryptionErrors {
+						fmt.Printf("  %d. %s\n", i+1, errMsg)
+					}
+					fmt.Println()
+				}
+				fmt.Println("Try:")
+				fmt.Println("  • Verify the secret reference is correct")
+				fmt.Println("  • Run `pigeonhole keys list` to see your available keys")
+				fmt.Println("  • Run `pigeonhole keys init` to regenerate your keys")
+			}
 			return
 		}
 		logrus.Debugf("decryptedFilePath: %s", decryptedFilePath)
