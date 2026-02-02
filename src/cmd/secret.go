@@ -90,7 +90,8 @@ var SecretsRetrieveCmd = &cobra.Command{
 			decryptedFilePath, err = utils.DecryptBytes(inputBytes, &downloadSecretPath, &decodedKey)
 
 			if err != nil {
-				logrus.Debugf("nFailed to Decrypt bytes: %s", err.Error())
+				logrus.Debugf("Failed to Decrypt bytes: %s", err.Error())
+				fmt.Printf("Failed to Decrypt: %s\n", err.Error())
 				return
 			}
 			decrypted = true
