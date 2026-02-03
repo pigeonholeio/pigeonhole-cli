@@ -2,13 +2,12 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/pigeonholeio/common/utils"
+	"github.com/pigeonholeio/pigeonhole-cli/auth"
 	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
 	"github.com/sirupsen/logrus"
@@ -32,8 +31,6 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	Long:          `This command will display the size of a directory with several different options.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// InitConfig()
-
 		SetLogger()
 		GlobalCtx, ContextCancel = context.WithTimeout(context.Background(), 60*time.Second)
 		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig, Version)
@@ -42,48 +39,12 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		// resp, errx := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
-		resp, errx := PigeonHoleClient.GetPingWithResponse(GlobalCtx)
-
-		if errx != nil {
-			logrus.Debug(errx)
-			if errors.Is(errx, context.DeadlineExceeded) {
-				fmt.Printf("❌ HTTP request timed out after %d seconds\n", timeoutSec)
-				os.Exit(0)
-
-			} else {
-				fmt.Println("☠️ Can't reach the PigeonHole servers")
-				os.Exit(0)
-
-			}
-		}
-
-		if resp == nil {
-			fmt.Println("☠️ Invalid response from PigeonHole servers")
-			os.Exit(0)
-		}
-
-		if resp.StatusCode() == http.StatusOK {
-			if resp.JSON200 == nil || resp.JSON200.Version == nil {
-				fmt.Println("☠️ Invalid response format from PigeonHole servers")
-				os.Exit(0)
-			}
-			// if !sameMajorMinor(*resp.JSON200.Version, Version) {
-			// 	fmt.Printf("❌ Client version does not match server version, please update to the same major + minor version.\nClient Version: v%s\nServer Version: v%s\n", Version, *resp.JSON200.Version)
-			// 	os.Exit(0)
-
-			// }
-		} else if resp.StatusCode() == http.StatusForbidden {
-			printInvalidTokenError("Forbidden", resp.JSON403)
-		} else if resp.StatusCode() == http.StatusBadRequest {
-			printInvalidTokenError("Bad Request", resp.JSON400)
-		} else if resp.StatusCode() == http.StatusUnauthorized {
-			printInvalidTokenError("Unauthorized", resp.JSON401)
-		} else if resp.StatusCode() == http.StatusInternalServerError {
-			if resp.JSON500 != nil && resp.JSON500.Message != nil {
-				logrus.Debugf("Message received from server: %s", *resp.JSON500.Message)
-			}
-			fmt.Println("🌭 The PigeonHole API is misbehaving. Grab a tea, it'll be fixed soon!")
+		// Validate token locally and refresh if needed
+		err := auth.ValidateAndRefreshToken(GlobalCtx, &PigeonHoleConfig, fullConfigPath)
+		if err != nil {
+			logrus.Debugf("Token validation failed: %v", err)
+			fmt.Printf("🛡️ Authentication Error: %v\n", err)
+			fmt.Println("💡 Run with -v flag for more information")
 			os.Exit(0)
 		}
 
@@ -173,39 +134,3 @@ func SetLogger() {
 	}
 }
 
-func printInvalidTokenError(statusName string, errorMsg *sdk.GeneralMessage) {
-	var errDetails string
-	if errorMsg != nil && errorMsg.Message != nil {
-		errDetails = *errorMsg.Message
-	}
-
-	logrus.Debugf("Token validation failed with status: %s", statusName)
-	logrus.Debugf("Server error message: %s", errDetails)
-
-	// Log token info for debugging
-	if token := viper.GetString("auth.token"); token != "" {
-		logrus.Debugf("Token exists in config: yes")
-		logrus.Debugf("Token length: %d bytes", len(token))
-		if len(token) > 50 {
-			logrus.Debugf("Token prefix (first 50 chars): %s...", token[:50])
-		}
-	} else {
-		logrus.Debugf("Token exists in config: no")
-	}
-
-	// Log server info
-	if apiURL := viper.GetString("api.url"); apiURL != "" {
-		logrus.Debugf("API URL: %s", apiURL)
-	}
-	if server := viper.GetString("server.url"); server != "" {
-		logrus.Debugf("Server URL: %s", server)
-	}
-
-	if errDetails != "" {
-		fmt.Printf("🛡️ Invalid Token (%s): %s\nTry signing back in using `pigeonhole auth --help`\n", statusName, errDetails)
-	} else {
-		fmt.Printf("🛡️ Invalid Token (%s) - Try signing back in using `pigeonhole auth --help`\n", statusName)
-	}
-	fmt.Println("💡 Run with --debug flag for more information")
-	os.Exit(0)
-}

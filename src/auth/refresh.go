@@ -2,14 +2,18 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
@@ -42,6 +46,22 @@ func RefreshToken(ctx context.Context, cfg *config.PigeonHoleConfig, clientID st
 	}
 
 	logrus.Debugf("IdP token refreshed successfully")
+
+	// Update access token with the new one
+	cfg.API.AccessToken = &newToken.AccessToken
+
+	// Extract and update token expiry
+	if claims, err := utils.DecodePigeonHoleJWT(newToken.AccessToken); err == nil {
+		if exp, ok := claims["exp"]; ok {
+			if expFloat, ok := exp.(float64); ok {
+				expInt64 := int64(expFloat)
+				cfg.API.TokenExpiry = &expInt64
+				logrus.Debugf("Token expiry updated: %d (expires at %s)", expInt64, time.Unix(expInt64, 0))
+			}
+		}
+	} else {
+		logrus.Debugf("Failed to decode new token claims: %v", err)
+	}
 
 	// Update the stored refresh token if a new one was provided
 	if newToken.RefreshToken != "" && newToken.RefreshToken != *cfg.API.RefreshToken {
@@ -185,4 +205,139 @@ func authenticateWithRefreshToken(ctx context.Context, cfg *config.PigeonHoleCon
 	})
 
 	return tokenSource.Token()
+}
+
+// OIDCDiscoveryDocument represents the OIDC well-known configuration
+type OIDCDiscoveryDocument struct {
+	Issuer                      string   `json:"issuer"`
+	AuthorizationEndpoint       string   `json:"authorization_endpoint"`
+	TokenEndpoint               string   `json:"token_endpoint"`
+	DeviceAuthorizationEndpoint string   `json:"device_authorization_endpoint"`
+	UserinfoEndpoint            string   `json:"userinfo_endpoint"`
+	JwksUri                     string   `json:"jwks_uri"`
+	ScopesSupported             []string `json:"scopes_supported"`
+}
+
+// DiscoverProviderFromIssuer fetches OIDC configuration from issuer's well-known endpoint
+func DiscoverProviderFromIssuer(ctx context.Context, issuer string) (*sdk.OIDCProvider, error) {
+	// Normalize issuer (remove trailing slash)
+	issuer = strings.TrimSuffix(issuer, "/")
+
+	// Build well-known URL
+	wellKnownURL := fmt.Sprintf("%s/.well-known/openid-configuration", issuer)
+	logrus.Debugf("Fetching OIDC configuration from: %s", wellKnownURL)
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "GET", wellKnownURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Execute request with timeout
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch OIDC configuration: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("OIDC discovery returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var discovery OIDCDiscoveryDocument
+	if err := json.NewDecoder(resp.Body).Decode(&discovery); err != nil {
+		return nil, fmt.Errorf("failed to decode OIDC configuration: %w", err)
+	}
+
+	// Build OIDCProvider
+	scopes := discovery.ScopesSupported
+	if len(scopes) == 0 {
+		scopes = []string{"openid", "profile", "email"}
+	}
+
+	provider := &sdk.OIDCProvider{
+		Name:          &issuer,
+		AuthUrl:       &discovery.AuthorizationEndpoint,
+		TokenUrl:      &discovery.TokenEndpoint,
+		DeviceAuthURL: &discovery.DeviceAuthorizationEndpoint,
+		Scopes:        &scopes,
+	}
+
+	return provider, nil
+}
+
+// ValidateAndRefreshToken checks if the access token is valid and refreshes it if needed
+func ValidateAndRefreshToken(ctx context.Context, cfg *config.PigeonHoleConfig, fullConfigPath string) error {
+	// Check if access token exists
+	if cfg == nil || cfg.API == nil || cfg.API.AccessToken == nil || *cfg.API.AccessToken == "" {
+		return fmt.Errorf("not authenticated - please run 'pigeonhole auth login'")
+	}
+
+	// Decode JWT to check claims
+	claims, err := utils.DecodePigeonHoleJWT(*cfg.API.AccessToken)
+	if err != nil {
+		return fmt.Errorf("invalid token format: %w", err)
+	}
+
+	// Extract expiry and check if token is valid
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return fmt.Errorf("no expiry claim in token")
+	}
+
+	expiryTime := time.Unix(int64(exp), 0)
+
+	// If token is not expired and not near expiry (5 minutes), return success
+	if time.Now().Before(expiryTime.Add(-5 * time.Minute)) {
+		logrus.Debugf("Token is valid until %s", expiryTime)
+		return nil
+	}
+
+	logrus.Debugf("Token is expired or near expiry, attempting refresh")
+
+	// Token is expired or near expiry - attempt refresh
+	if cfg.API.RefreshToken == nil || *cfg.API.RefreshToken == "" {
+		return fmt.Errorf("token expired and no refresh token available - please run 'pigeonhole auth login'")
+	}
+
+	// Extract issuer from JWT to discover provider configuration
+	issuer, ok := claims["iss"].(string)
+	if !ok || issuer == "" {
+		return fmt.Errorf("no issuer claim in token")
+	}
+
+	// Discover provider configuration from issuer's well-known endpoint
+	provider, err := DiscoverProviderFromIssuer(ctx, issuer)
+	if err != nil {
+		return fmt.Errorf("failed to discover IdP configuration: %w", err)
+	}
+
+	// Extract client ID from JWT claims
+	clientID := "pigeonhole-cli"
+	if aud, ok := claims["azp"].(string); ok && aud != "" {
+		clientID = aud
+		logrus.Debugf("Using authorized party (azp) as client ID: %s", clientID)
+	} else if aud, ok := claims["aud"].(string); ok && aud != "" {
+		clientID = aud
+		logrus.Debugf("Using audience (aud) as client ID: %s", clientID)
+	}
+
+	// Perform token refresh
+	err = RefreshToken(ctx, cfg, clientID, provider)
+	if err != nil {
+		return fmt.Errorf("token refresh failed: %w\nPlease run 'pigeonhole auth login' to re-authenticate", err)
+	}
+
+	// Update config file with new tokens
+	v := viper.New()
+	err = cfg.Save(v, &fullConfigPath)
+	if err != nil {
+		logrus.Warnf("Failed to save refreshed token to config: %v", err)
+		// Don't fail if we can't save - the token is still valid in memory
+	}
+
+	logrus.Debugf("Token refreshed successfully and saved to config")
+	return nil
 }
