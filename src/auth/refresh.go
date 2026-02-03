@@ -299,7 +299,7 @@ func ValidateAndRefreshToken(ctx context.Context, cfg *config.PigeonHoleConfig, 
 
 	// Token is expired or near expiry - attempt refresh
 	if cfg.API.RefreshToken == nil || *cfg.API.RefreshToken == "" {
-		return fmt.Errorf("token expired and no refresh token available - please run 'pigeonhole auth login'")
+		return fmt.Errorf("token expired and no refresh token available - please run 'pigeonhole login'")
 	}
 
 	// Extract issuer from JWT to discover provider configuration
