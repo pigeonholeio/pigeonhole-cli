@@ -1,36 +1,42 @@
 #!/bin/bash
 
 # The bump is performed only on the "main" or "master" branch unless a branch is specified with the -b argument
-# Example :
-#    bump-version -b staging
-
+# Reads version from artefact.yml as source of truth and updates it on bump
+# Example:
+#    ./bump-version.sh -v 1.2.48      # Bump to specific version
+#    ./bump-version.sh                # Auto-increment patch version
+#    ./bump-version.sh -b staging     # Use staging branch instead
 
 # Check that HEAD is not detached
-DETACHED=`git branch --show-current | wc -l`
+DETACHED=$(git branch --show-current | wc -l)
 if [ $DETACHED -eq 0 ]; then
     echo "HEAD is detached. Please fix it before."
     exit 1
 fi
 
 BUILD_BRANCH=''
+MANUAL_VERSION=''
 
-# Check if a branch was passed as an argument
-while getopts "b:" option
+# Check if arguments were passed
+while getopts "b:v:" option
 do
     case $option in
         b)
             BUILD_BRANCH=$OPTARG
             ;;
+        v)
+            MANUAL_VERSION=$OPTARG
+            ;;
     esac
 done
 
-# Determines the build branch ("main" or "master") if no branch was passed as an argument
+# Determine build branch ("main" or "master") if no branch was passed as an argument
 if [ -z "$BUILD_BRANCH" ]; then
-    if [ `git rev-parse --verify main 2>/dev/null` ]
+    if [ "$(git rev-parse --verify main 2>/dev/null)" ]
     then
         BUILD_BRANCH='main'
     else
-        if [ `git rev-parse --verify master 2>/dev/null` ]
+        if [ "$(git rev-parse --verify master 2>/dev/null)" ]
         then
             BUILD_BRANCH='master'
         else
@@ -47,34 +53,40 @@ if [ "$(git rev-list --count HEAD..$BUILD_BRANCH)" -gt 0 ]; then
     exit 1
 fi
 
-# Guess the next tag
-if [[ "$(git tag --merged $BUILD_BRANCH)" ]]; then
-    # increment the last tag
-    NEXT_TAG=`git describe --tags --abbrev=0 | awk -F. '{OFS="."; $NF+=1; print $0}'`
-else
-    # there is no tag yet
-    NEXT_TAG='0.1.0'
+# Read current version from artefact.yml
+CURRENT_VERSION=$(yq eval '.metadata.version' artefact.yml)
+
+if [ -z "$CURRENT_VERSION" ]; then
+    echo "Error: Could not read version from artefact.yml"
+    exit 1
 fi
 
-# Ask for next tag
+# Determine next version
+if [ -n "$MANUAL_VERSION" ]; then
+    NEXT_TAG=$MANUAL_VERSION
+else
+    # Auto-increment patch version
+    NEXT_TAG=$(echo $CURRENT_VERSION | awk -F. '{OFS="."; $NF+=1; print $0}')
+fi
+
+echo "Current version: $CURRENT_VERSION"
+echo "Next version: $NEXT_TAG"
+
+# Validate semver
 SEMVER_REGEX="^[vV]?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(\\-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
-SEMVER_VALID=false
+if ! [[ "$NEXT_TAG" =~ $SEMVER_REGEX ]]; then
+    echo 'Version must match semver scheme X.Y.Z[-PRERELEASE][+BUILD]'
+    exit 1
+fi
+
 TAG=$NEXT_TAG
-# while [[ $SEMVER_VALID == false ]]
-# do
-#     read -p "Next tag [$NEXT_TAG]: " TAG
-#     # empty answer
-#     if [ -z "$TAG" ]; then
-#         # set guessed tag
-#         TAG=$NEXT_TAG
-#     fi
-#     # semver validation
-#     if [[ "$TAG" =~ $SEMVER_REGEX ]]; then
-#         SEMVER_VALID=true
-#     else
-#         echo 'Tag must match the semver scheme X.Y.Z[-PRERELEASE][+BUILD]. See https://semver.org/'
-#     fi
-# done
+
+# Update artefact.yml with new version
+yq eval ".metadata.version = \"$TAG\"" -i artefact.yml
+
+# Update version.go with new version (keep in sync)
+sed -i.bak "s/Version *= *\"[^\"]*\"/Version = \"$TAG\"/" src/cmd/version.go
+rm -f src/cmd/version.go.bak
 
 # Release message
 if [[ $TAG =~ ^[v] ]]; then
@@ -84,19 +96,19 @@ else
     MESSAGE="release $TAG"
 fi
 
-# Checks if a commit is needed
-if [ -n "$(git status --porcelain)" ]; then
-    git add -A .
-    git commit -am "bump version"
-fi
+# Commit changes
+git add artefact.yml src/cmd/version.go
+git commit -m "bump version to $TAG"
 
+# Create git tag
 git tag -a "$TAG" -m "$MESSAGE"
 
-# Ask to push new release
+# Push changes and tags
 # read -p "Push new release (Y/n)? [Y]:" -r
 REPLY=${REPLY:-Y}
-if [[ $REPLY =~ ^[YyOo]$  ]]; then
+if [[ $REPLY =~ ^[YyOo]$ ]]; then
   git push origin $BUILD_BRANCH --follow-tags
 fi
 
+echo "✅ Version bumped to $TAG"
 exit 0

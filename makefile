@@ -1,5 +1,6 @@
 OPENAPI_PATH := "../server/src/docs/swagger.yaml"
 SDK_PATH := /Users/rhysevans/git/pigeonhole/api
+VERSION := $(shell yq eval '.metadata.version' artefact.yml)
 
 ## help: Show this help
 help:
@@ -21,13 +22,13 @@ git-push-all:
 	git push --tags
 
 goreleaser-release:
-	GITLAB_TOKEN= goreleaser release --clean --fail-fast --auto-snapshot
+	VERSION=$(VERSION) GITLAB_TOKEN= goreleaser release --clean --fail-fast --auto-snapshot
 	
 
 
 	
 snapshot:
-	GITLAB_TOKEN= goreleaser build --snapshot --clean
+	VERSION=$(VERSION) GITLAB_TOKEN= goreleaser build --snapshot --clean
 
 
 
@@ -74,9 +75,9 @@ build-rpm-releaser:
 	@echo "==> Building Rpm releaser"
 	@docker build --no-cache -t pigeonhole-cli-releaser-rpm:latest -f build/rpm.Dockerfile .
 
-run_repo_deb: 
+run_repo_deb:
 	docker run -it --rm \
-		--env "XVERSION=$(shell git tag | sort -r -V | head -n 1)" \
+		--env "XVERSION=$(VERSION)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -98,10 +99,10 @@ run_repo_deb:
 
 
 
-build-deb: 
+build-deb:
 	@echo "==> Building Deb package"
 	@docker run -it --rm \
-		--env "XVERSION=$(shell git tag | sort -r -V | head -n 1)" \
+		--env "XVERSION=$(VERSION)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -110,10 +111,10 @@ build-deb:
 		-v ./build/makefile:/app/makefile \
 		pigeonhole-cli-releaser-deb:latest make build-deb
 
-build-rpm: 
+build-rpm:
 	@echo "==> Building RPM package"
 	@docker run -it --rm \
-		--env "XVERSION=$(shell git tag | sort -r -V | head -n 1)" \
+		--env "XVERSION=$(VERSION)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -124,7 +125,7 @@ build-rpm:
 
 full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm
 push-repo:
-	cd ../repo && git add . && git commit -m"Release $(shell git tag | sort -r -V | head -n 1)" && git push
+	cd ../repo && git add . && git commit -m"Release $(VERSION)" && git push
 release-packages: build-deb build-rpm push-repo
 # curl -s https://packages.pigeono.io/gpg.pub --output - > /etc/apt/trusted.gpg.d/pigeonholeio.gpg
 
