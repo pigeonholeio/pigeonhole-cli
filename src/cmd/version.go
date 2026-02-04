@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	Version = "1.2.50"
+	Version = "1.2.51"
 	BuildTime  = "dev"
 	CommitHash = "dev"
 	BuiltBy    = "dev"
