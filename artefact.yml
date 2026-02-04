@@ -2,4 +2,4 @@ metadata:
   name: cli
   description: |
     This is the client side cli to PigeonHole
-  version: 1.2.52
+  version: 1.2.53
