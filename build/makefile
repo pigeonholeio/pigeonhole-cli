@@ -76,6 +76,69 @@ build-rpm: copy-gpg
 push-repo:
 	cd /repo && git add . && git commit -m"Release $(XVERSION)" && git push
 
+# -----------------------
+# Chocolatey
+# -----------------------
+
+build-choco: copy-gpg
+	@echo "==> Building Chocolatey package (.nupkg) for version $(XVERSION)"
+	@mkdir -p /tmp/choco_build/tools
+	@mkdir -p /repo/choco
+
+	# Copy Windows binary to choco build directory
+	@cp /dist/default_windows_amd64_v1/pigeonhole.exe /tmp/choco_build/tools/
+
+	# Calculate SHA256 checksum of the binary
+	@CHECKSUM=$$(sha256sum /dist/default_windows_amd64_v1/pigeonhole.exe | awk '{print $$1}') && \
+	  sed -e "s|{{VERSION}}|$(XVERSION)|g" \
+	      -e "s|{{CHECKSUM}}|$$CHECKSUM|g" \
+	      /app/build/choco/pigeonhole-cli.nuspec.template > /tmp/choco_build/pigeonhole-cli.nuspec && \
+	  echo "Generated nuspec with checksum: $$CHECKSUM"
+
+	# Copy installation and uninstallation scripts
+	@cp /app/build/choco/tools/chocolateyinstall.ps1 /tmp/choco_build/tools/
+	@cp /app/build/choco/tools/chocolateyuninstall.ps1 /tmp/choco_build/tools/
+
+	# Generate VERIFICATION.txt with actual version and checksum
+	@CHECKSUM=$$(sha256sum /dist/default_windows_amd64_v1/pigeonhole.exe | awk '{print $$1}') && \
+	  sed -e "s|{{VERSION}}|$(XVERSION)|g" \
+	      -e "s|{{CHECKSUM}}|$$CHECKSUM|g" \
+	      -e "s|{{GOVERSION}}|1.21|g" \
+	      /app/build/choco/tools/VERIFICATION.txt > /tmp/choco_build/tools/VERIFICATION.txt
+
+	# Copy license file
+	@cp /app/build/choco/LICENSE.txt /tmp/choco_build/
+
+	# Build the package using nuget (nuget.exe requires mono on Linux)
+	@cd /tmp/choco_build && mono /usr/local/bin/nuget pack pigeonhole-cli.nuspec -OutputDirectory /repo/choco
+	@echo "✓ Chocolatey package built successfully"
+
+	# Sign the package with GPG
+	@if [ -f /repo/choco/pigeonhole-cli.$(XVERSION).nupkg ]; then \
+	  echo "Signing Chocolatey package..."; \
+	  gpg --batch --pinentry-mode=loopback --yes --detach-sign --armor \
+	      --local-user $(GPG_KEY_ID) /repo/choco/pigeonhole-cli.$(XVERSION).nupkg; \
+	  echo "✓ Package signed successfully"; \
+	fi
+
+push-choco:
+	@echo "==> Pushing Chocolatey package to community repository"
+	@if [ -z "$(CHOCO_API_KEY)" ]; then \
+	  echo "Error: CHOCO_API_KEY environment variable not set"; \
+	  exit 1; \
+	fi
+	@if [ ! -f /repo/choco/pigeonhole-cli.$(XVERSION).nupkg ]; then \
+	  echo "Error: Package not found at /repo/choco/pigeonhole-cli.$(XVERSION).nupkg"; \
+	  exit 1; \
+	fi
+	@docker run --rm \
+	  -e CHOCO_API_KEY=$(CHOCO_API_KEY) \
+	  -v /repo/choco:/packages:ro \
+	  chocolatey/choco:latest \
+	  choco push /packages/pigeonhole-cli.$(XVERSION).nupkg \
+	    --source https://push.chocolatey.org/ \
+	    --api-key $(CHOCO_API_KEY)
+	@echo "✓ Package pushed successfully"
 
 # 	@echo "==> Building .rpm"
 # 	mkdir -p $(RPM_TMP_DIR)/usr/local/bin
@@ -153,4 +216,4 @@ push-repo:
 # 		gpg --detach-sign --armor --local-user $(GPG_KEY) $(WIN_DIR)/$(NAME).$(VERSION).nupkg; \
 # 	fi
 
-.PHONY: all clean build-deb build-rpm build-choco sign-all
+.PHONY: all clean copy-gpg build-deb build-rpm build-choco push-repo

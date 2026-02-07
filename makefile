@@ -22,13 +22,13 @@ git-push-all:
 	git push --tags
 
 goreleaser-release:
-	VERSION=$(VERSION) GITLAB_TOKEN= goreleaser release --clean --fail-fast --auto-snapshot
+	VERSION=$(shell yq eval -P '.metadata.version' ./artefact.yml) GITLAB_TOKEN= goreleaser release --clean --fail-fast --auto-snapshot
 	
 
 
 	
 snapshot:
-	VERSION=$(VERSION) GITLAB_TOKEN= goreleaser build --snapshot --clean
+	VERSION=$(shell yq eval -P '.metadata.version' ./artefact.yml) GITLAB_TOKEN= goreleaser build --snapshot --clean
 
 
 
@@ -77,7 +77,7 @@ build-rpm-releaser:
 
 run_repo_deb:
 	docker run -it --rm \
-		--env "XVERSION=$(VERSION)" \
+		--env "XVERSION=$(shell yq eval -P '.metadata.version' ./artefact.yml)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -102,7 +102,7 @@ run_repo_deb:
 build-deb:
 	@echo "==> Building Deb package"
 	@docker run -it --rm \
-		--env "XVERSION=$(VERSION)" \
+		--env "XVERSION=$(shell yq eval -P '.metadata.version' ./artefact.yml)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -114,7 +114,7 @@ build-deb:
 build-rpm:
 	@echo "==> Building RPM package"
 	@docker run -it --rm \
-		--env "XVERSION=$(VERSION)" \
+		--env "XVERSION=$(shell yq eval -P '.metadata.version' ./artefact.yml)" \
 		-v $$(realpath ~/.gnupg):/root/.gnupgx \
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
@@ -123,10 +123,38 @@ build-rpm:
 		-v ./build/makefile:/app/makefile \
 		pigeonhole-cli-releaser-rpm:latest make build-rpm
 
-full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm
+build-choco:
+	@echo "==> Building Chocolatey package"
+	@docker run -it --rm \
+		--env "XVERSION=$(shell yq eval -P '.metadata.version' ./artefact.yml)" \
+		-v $$(realpath ~/.gnupg):/root/.gnupgx \
+		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
+		-v $$(realpath ~/.ssh):/root/.ssh:ro \
+		-v ./dist:/dist:ro \
+		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
+		-v ./build:/app/build:ro \
+		-v ./build/makefile:/app/makefile \
+		pigeonhole-cli-releaser-deb:latest make build-choco
+
+push-choco:
+	@echo "==> Pushing Chocolatey package to community repository"
+	@if [ -z "$(CHOCO_API_KEY)" ]; then \
+	  echo "Error: CHOCO_API_KEY environment variable not set"; \
+	  exit 1; \
+	fi
+	@docker run --rm \
+	  -e CHOCO_API_KEY=$(CHOCO_API_KEY) \
+	  -v $$(realpath ../repo)/choco:/packages:ro \
+	  chocolatey/choco:latest \
+	  choco push /packages/pigeonhole-cli.$(shell yq eval -P '.metadata.version' ./artefact.yml).nupkg \
+	    --source https://push.chocolatey.org/ \
+	    --api-key $(CHOCO_API_KEY)
+	@echo "✓ Package pushed successfully"
+
+full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm build-choco
 push-repo:
-	cd ../repo && git add . && git commit -m"Release $(VERSION)" && git push
-release-packages: build-deb build-rpm push-repo
+	cd ../repo && git add . && git commit -m"Release $(shell yq eval -P '.metadata.version' ./artefact.yml)" && git push
+release-packages: build-deb build-rpm build-choco push-repo
 # curl -s https://packages.pigeono.io/gpg.pub --output - > /etc/apt/trusted.gpg.d/pigeonholeio.gpg
 
 release: trigger-git goreleaser-release release-packages

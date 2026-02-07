@@ -97,13 +97,13 @@ release:
     # 🚀 A new PigeonHole release 
 
   footer: |
-    ## Thanks
+    ## That's all folks!
 
     Those were the changes on {{ .Tag }}!
     Don't forget if you like the tool and would like to help, there are several ways you can contribute and help the project;
-    1. Something as simply 🌟-ing the Github Project to show your appreciation
-    2. Let me know what you'd like to see in the tool by emailing directly or messing me on [keybase.io/rhysjtevans](https://keybase.io/rhysjtevans)
-    3. Consider sponsoring the project on Patreon or as a Github Sponsor
+    1. Simply 🌟 the project
+    2. Provide feedback@pigeono.io or [@pigeonholeio](https://x.com/pigeonholeio)
+    3. [Buy me a Coffee](https://buymeacoffee.com/pigeonholeio)
 
   skip_upload: false
 
