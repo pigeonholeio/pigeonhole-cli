@@ -11,102 +11,9 @@ PigeonHole CLI is the modern way to send secrets, files, or any text securely. E
 - 🌐 **OIDC Authentication** - Authenticate with your identity provider
 - ✨ **Modern CLI Experience** - User-friendly command-line interface
 
-## Installation
+## Getting Started
+Head over to the [Quick Start Guide](https://pigeono.io/quick-start/) on how to install and send your first secret!
 
-### Windows (Chocolatey)
-
-```powershell
-choco install pigeonhole-cli --source https://packages.pigeono.io/choco/
-```
-
-Once approved in the Chocolatey community repository:
-```powershell
-choco install pigeonhole-cli
-```
-
-For more details, see [Chocolatey Installation Guide](./docs/CHOCOLATEY.md).
-
-### macOS (Homebrew)
-
-```bash
-brew install pigeonholeio/pigeonhole/pigeonhole-cli
-```
-
-### Linux (DEB packages)
-
-```bash
-# Ubuntu/Debian
-curl -fsSL https://packages.pigeono.io/gpg.pub | sudo apt-key add -
-echo "deb https://packages.pigeono.io/apt noble main" | sudo tee /etc/apt/sources.list.d/pigeono.list
-sudo apt update
-sudo apt install pigeonhole-cli
-```
-
-### Linux (RPM packages)
-
-```bash
-# RedHat/Fedora/CentOS
-sudo rpm --import https://packages.pigeono.io/gpg.pub
-sudo dnf install -y 'dnf-command(config-manager)'
-sudo dnf config-manager --add-repo https://packages.pigeono.io/rpm
-sudo dnf install pigeonhole-cli
-```
-
-### From Source
-
-```bash
-cd src
-go build -o pigeonhole ./main.go
-```
-
-## Quick Start
-
-### 1. Authenticate
-
-```bash
-pigeonhole auth login
-```
-
-This starts the OAuth2 device authorization flow. Follow the prompts to authenticate with your identity provider.
-
-### 2. Set Up Encryption Keys
-
-```bash
-pigeonhole keys init
-```
-
-This creates a GPG key pair for end-to-end encryption.
-
-### 3. Send a Secret
-
-```bash
-pigeonhole secret send -r recipient@example.com -f myfile.txt
-```
-
-Or send text:
-```bash
-pigeonhole secret send -r recipient@example.com -t "My secret message"
-```
-
-### 4. View Secrets
-
-```bash
-pigeonhole secret list
-```
-
-## Usage
-
-View all available commands:
-
-```bash
-pigeonhole --help
-```
-
-Get help for a specific command:
-
-```bash
-pigeonhole <command> --help
-```
 
 ### Common Commands
 
@@ -139,7 +46,7 @@ Configuration files are stored in:
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE) for details
+see [LICENSE](./LICENSE) for details
 
 ## Contributing
 
