@@ -168,12 +168,6 @@ var authLoginCmd = &cobra.Command{
 			logrus.Debugf("IdP Refresh Token stored")
 		}
 
-		// Persist IdP token to config file
-		viper.Set("auth.token", idPTok.AccessToken)
-		if err := viper.WriteConfig(); err != nil {
-			logrus.Warnf("Failed to persist token to config file: %v", err)
-		}
-
 		// Extract user info and expiry from IdP token
 		email := ""
 		name := ""
