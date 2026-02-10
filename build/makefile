@@ -140,6 +140,48 @@ push-choco:
 	    --api-key $(CHOCO_API_KEY)
 	@echo "✓ Package pushed successfully"
 
+# -----------------------
+# MSI Package
+# -----------------------
+
+build-msi: copy-gpg
+	@echo "==> Building MSI package (.msi) for version $(XVERSION)"
+	@mkdir -p /tmp/msi_build
+	@mkdir -p /repo/msi
+
+	# Copy Windows binary to msi build directory
+	@cp /dist/default_windows_amd64_v1/pigeonhole.exe /tmp/msi_build/
+
+	# Copy wix.json and LICENSE
+	@cp /app/build/msi/wix.json /tmp/msi_build/
+	@cp /app/build/msi/LICENSE /tmp/msi_build/
+
+	# Generate MSI using go-msi
+	@cd /tmp/msi_build && \
+	  go-msi make --msi pigeonhole-cli-$(XVERSION)-amd64.msi \
+	               --version $(XVERSION) \
+	               --arch amd64 \
+	               --src /tmp/msi_build \
+	               --out /repo/msi
+
+	@echo "✓ MSI package built successfully at /repo/msi/pigeonhole-cli-$(XVERSION)-amd64.msi"
+
+	# Sign the MSI with GPG (optional, for integrity verification)
+	@if [ -f /repo/msi/pigeonhole-cli-$(XVERSION)-amd64.msi ]; then \
+	  echo "Signing MSI package..."; \
+	  gpg --batch --pinentry-mode=loopback --yes --detach-sign --armor \
+	      --local-user $(GPG_KEY_ID) /repo/msi/pigeonhole-cli-$(XVERSION)-amd64.msi; \
+	  echo "✓ MSI signed successfully"; \
+	fi
+
+	# Calculate SHA256 checksum
+	@sha256sum /repo/msi/pigeonhole-cli-$(XVERSION)-amd64.msi > /repo/msi/pigeonhole-cli-$(XVERSION)-amd64.msi.sha256
+	@echo "✓ Checksum generated"
+
+push-msi:
+	@echo "==> MSI packages are distributed via GitHub releases"
+	@echo "    No separate push required - they will be uploaded during 'make release'"
+
 # 	@echo "==> Building .rpm"
 # 	mkdir -p $(RPM_TMP_DIR)/usr/local/bin
 # 	cp $(BIN) $(RPM_TMP_DIR)/usr/local/bin/$(NAME)
@@ -216,4 +258,4 @@ push-choco:
 # 		gpg --detach-sign --armor --local-user $(GPG_KEY) $(WIN_DIR)/$(NAME).$(VERSION).nupkg; \
 # 	fi
 
-.PHONY: all clean copy-gpg build-deb build-rpm build-choco push-repo
+.PHONY: all clean copy-gpg build-deb build-rpm build-choco build-msi push-repo push-choco push-msi

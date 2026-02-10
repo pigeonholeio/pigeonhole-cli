@@ -82,6 +82,7 @@ run_repo_deb:
 		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
 		-v $$(realpath ~/.ssh):/root/.ssh:ro \
 		-v ./dist:/dist:ro \
+		-v $$(realpath .):/app:ro \
 		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
 		-v ./build/makefile:/app/makefile \
 		pigeonhole-cli-releaser-deb:latest
@@ -151,10 +152,23 @@ push-choco:
 	    --api-key $(CHOCO_API_KEY)
 	@echo "✓ Package pushed successfully"
 
-full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm build-choco
+build-msi:
+	@echo "==> Building MSI package"
+	@docker run -it --rm \
+		--env "XVERSION=$(shell yq eval -P '.metadata.version' ./artefact.yml)" \
+		-v $$(realpath ~/.gnupg):/root/.gnupgx \
+		-v $$(realpath ~/.gitconfig):/root/.gitconfig \
+		-v $$(realpath ~/.ssh):/root/.ssh:ro \
+		-v ./dist:/dist:ro \
+		-v /Users/rhysevans/git/pigeonhole/repo:/repo \
+		-v ./build:/app/build:ro \
+		-v ./build/makefile:/app/makefile \
+		pigeonhole-cli-releaser-deb:latest make build-msi
+
+full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm build-choco build-msi
 push-repo:
 	cd ../repo && git add . && git commit -m"Release $(shell yq eval -P '.metadata.version' ./artefact.yml)" && git push
-release-packages: build-deb build-rpm build-choco push-repo
+release-packages: build-deb build-rpm build-choco push-repo push-choco
 # curl -s https://packages.pigeono.io/gpg.pub --output - > /etc/apt/trusted.gpg.d/pigeonholeio.gpg
 
 release: trigger-git goreleaser-release release-packages
