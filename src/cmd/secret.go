@@ -210,8 +210,13 @@ var SecretsCountCmd = &cobra.Command{
 		} else if f.StatusCode() == 500 && f.JSON500 != nil && f.JSON500.Message != nil {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON500.Message)
 			fmt.Printf("failed: %s\n", *f.JSON500.Message)
-		} else {
+		} else if f.StatusCode() == 502 || f.StatusCode() == 503 || f.StatusCode() == 504 {
+			fmt.Println("Unable to connect to the Pigeonhole API. The service may be temporarily unavailable.")
+			fmt.Println("Please try again in a few moments.")
+		} else if f.StatusCode() == http.StatusOK && f.JSON200 != nil {
 			fmt.Println("No secrets found")
+		} else {
+			fmt.Println("An unexpected error occurred. Please try again or contact support.")
 		}
 
 	},
@@ -256,8 +261,13 @@ By default only received secrets are listed, use --all to list sent and active s
 		} else if f.StatusCode() == 500 && f.JSON500 != nil && f.JSON500.Message != nil {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON500.Message)
 			fmt.Printf("failed: %s\n", *f.JSON500.Message)
-		} else {
+		} else if f.StatusCode() == 502 || f.StatusCode() == 503 || f.StatusCode() == 504 {
+			fmt.Println("Unable to connect to the Pigeonhole API. The service may be temporarily unavailable.")
+			fmt.Println("Please try again in a few moments.")
+		} else if f.StatusCode() == http.StatusOK && f.JSON200 != nil {
 			fmt.Println("No secrets found")
+		} else {
+			fmt.Println("An unexpected error occurred. Please try again or contact support.")
 		}
 
 	},
