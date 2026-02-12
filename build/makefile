@@ -95,9 +95,6 @@ build-choco: copy-gpg
 	      /app/build/choco/pigeonhole-cli.nuspec.template > /tmp/choco_build/pigeonhole-cli.nuspec && \
 	  echo "Generated nuspec with checksum: $$CHECKSUM"
 
-	# Copy installation and uninstallation scripts
-	@cp /app/build/choco/tools/chocolateyinstall.ps1 /tmp/choco_build/tools/
-	@cp /app/build/choco/tools/chocolateyuninstall.ps1 /tmp/choco_build/tools/
 
 	# Generate VERIFICATION.txt with actual version and checksum
 	@CHECKSUM=$$(sha256sum /dist/default_windows_amd64_v1/pigeonhole.exe | awk '{print $$1}') && \
