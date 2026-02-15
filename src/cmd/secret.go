@@ -84,6 +84,48 @@ var SecretsRetrieveCmd = &cobra.Command{
 		}
 		var decryptedFilePath string
 
+		// Check if we have the right key to decrypt this secret
+		var applicableKeys []string
+		if downloadResp.JSON307.RecipientKeyFingerprint != nil && *downloadResp.JSON307.RecipientKeyFingerprint != "" {
+			fmt.Printf("\n⏳ Checking if you have the key needed to decrypt this secret...")
+			// Check which keys can decrypt this secret
+			for email, identity := range PigeonHoleConfig.Identity {
+				if identity.GPGKey != nil && identity.GPGKey.Fingerprint != nil {
+					if *identity.GPGKey.Fingerprint == *downloadResp.JSON307.RecipientKeyFingerprint {
+						applicableKeys = append(applicableKeys, email)
+					}
+				}
+			}
+
+			if len(applicableKeys) == 0 {
+				fmt.Println(" Failed!\n")
+				fmt.Println("❌ You don't have the key needed to decrypt this secret.")
+				fmt.Println()
+				fmt.Println("The secret was encrypted with fingerprint:")
+				fmt.Printf("  %s\n", *downloadResp.JSON307.RecipientKeyFingerprint)
+				fmt.Println()
+				fmt.Println("Your available keys:")
+				if len(PigeonHoleConfig.Identity) == 0 {
+					fmt.Println("  • No keys found in your configuration")
+				} else {
+					for email, identity := range PigeonHoleConfig.Identity {
+						if identity.GPGKey != nil && identity.GPGKey.Fingerprint != nil {
+							fmt.Printf("  • %s (fingerprint: %s)\n", email, *identity.GPGKey.Fingerprint)
+						} else {
+							fmt.Printf("  • %s\n", email)
+						}
+					}
+				}
+				fmt.Println()
+				fmt.Println("To resolve this:")
+				fmt.Println("  1. Verify the secret was encrypted for your email address")
+				fmt.Println("  2. Check if you have the correct GPG keys from the device where the secret was sent")
+				fmt.Println("  3. You may need to ask the sender to re-encrypt the secret with your current public key")
+				return
+			}
+			fmt.Println(" Yes!")
+		}
+
 		// decrypt the bytes to the desired path
 		decrypted := false
 		var decryptionErrors []string
@@ -247,6 +289,34 @@ By default only received secrets are listed, use --all to list sent and active s
 
 		if f.StatusCode() == http.StatusOK && f.JSON200 != nil && f.JSON200.Secrets != nil && len(*f.JSON200.Secrets) > 0 {
 			logrus.Debugf("PigeonHole return message: %s", *f.JSON200.Message)
+
+			// Check each secret's fingerprint against user's keys
+			for i, secret := range *f.JSON200.Secrets {
+				canDecrypt := false
+
+				// Check if secret has a recipient key fingerprint
+				if secret.RecipientKeyFingerprint != nil && *secret.RecipientKeyFingerprint != "" {
+					// Check against all user keys
+					for _, identity := range PigeonHoleConfig.Identity {
+						if identity.GPGKey != nil && identity.GPGKey.Fingerprint != nil {
+							if *identity.GPGKey.Fingerprint == *secret.RecipientKeyFingerprint {
+								canDecrypt = true
+								break
+							}
+						}
+					}
+				} else {
+					// If no fingerprint is stored, assume it can be decrypted (legacy support)
+					canDecrypt = true
+				}
+
+				// Add decryption status to secret for display
+				if !canDecrypt {
+					(*f.JSON200.Secrets)[i].RecipientKeyFingerprint = nil // Hide fingerprint if can't decrypt
+					// Mark with indicator that this secret can't be decrypted
+					logrus.Debugf("Secret %s encrypted with different key - cannot decrypt", *secret.Reference)
+				}
+			}
 
 			utils.OutputData(sdk.ToSecretViewSlice(*f.JSON200.Secrets))
 
@@ -529,7 +599,7 @@ func init() {
 	SecretsDropCmd.Flags().StringVarP(&filename, "filepath", "f", "", "A path to a file or folder to send")
 	SecretsDropCmd.Flags().StringVarP(&secretExpiry, "expiry", "x", "7d", "The expiration of the secret in time duration")
 	// SecretsDropCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "If you want to override the encrypted secret code name for the secret drop")
-	SecretsDropCmd.MarkFlagRequired("filepath")
+	// SecretsDropCmd.MarkFlagRequired("filepath")
 	SecretsDropCmd.MarkFlagRequired("recipient")
 	SecretsListCmd.Flags().StringVarP(&secretQueryReference, "reference", "r", "", "The id or reference of the secret")
 	SecretsListCmd.Flags().BoolVarP(&listAllSecrets, "all", "a", false, "List all sent and received secrets (default just received)")

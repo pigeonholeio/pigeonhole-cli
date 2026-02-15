@@ -28,9 +28,10 @@ type UserIdentity struct {
 }
 
 type GPGPair struct {
-	PublicKey  *string `mapstructure:"publicKey"`
-	PrivateKey *string `mapstructure:"privateKey"`
-	Thumbprint *string `mapstructure:"thumbprint"`
+	PublicKey   *string `mapstructure:"publicKey"`
+	PrivateKey  *string `mapstructure:"privateKey"`
+	Thumbprint  *string `mapstructure:"thumbprint"`
+	Fingerprint *string `mapstructure:"fingerprint"`
 }
 
 func (c *GPGPair) KeyExists() bool {
@@ -122,7 +123,7 @@ func (c *GPGPair) CreateKeyPair(name, email string) error {
 		return fmt.Errorf("GPGPair receiver is nil")
 	}
 
-	pub, priv, thumbprint := utils.CreateGPGKeyPair(name, email)
+	pub, priv, fingerprint := utils.CreateGPGKeyPair(name, email)
 	logrus.Debugf("assigning keys to GPGKeyPair instance")
 
 	// ensure the pointers are allocated
@@ -135,10 +136,14 @@ func (c *GPGPair) CreateKeyPair(name, email string) error {
 	if c.Thumbprint == nil {
 		c.Thumbprint = new(string)
 	}
+	if c.Fingerprint == nil {
+		c.Fingerprint = new(string)
+	}
 
 	*c.PrivateKey = utils.EncodeToBase64(priv)
 	*c.PublicKey = utils.EncodeToBase64(pub)
-	*c.Thumbprint = thumbprint
+	*c.Thumbprint = fingerprint
+	*c.Fingerprint = fingerprint
 
 	return nil
 }

@@ -35,11 +35,12 @@ type GeneralMessage struct {
 
 // Key defines model for Key.
 type Key struct {
-	CreatedAt  *time.Time          `json:"created_at,omitempty"`
-	Id         *openapi_types.UUID `json:"id,omitempty"`
-	KeyData    *string             `json:"key_data,omitempty"`
-	Reference  *string             `json:"reference,omitempty"`
-	Thumbprint *string             `json:"thumbprint,omitempty"`
+	CreatedAt   *time.Time          `json:"created_at,omitempty"`
+	Fingerprint *string             `json:"fingerprint,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+	KeyData     *string             `json:"key_data,omitempty"`
+	Reference   *string             `json:"reference,omitempty"`
+	Thumbprint  *string             `json:"thumbprint,omitempty"`
 }
 
 // NewKey defines model for NewKey.
@@ -72,13 +73,14 @@ type OIDCProviderToken struct {
 
 // Secret defines model for Secret.
 type Secret struct {
-	Expiration *time.Time `json:"expiration,omitempty"`
-	Onetime    *bool      `json:"onetime,omitempty"`
-	Recipient  *string    `json:"recipient,omitempty"`
-	Reference  *string    `json:"reference,omitempty"`
-	Sender     *string    `json:"sender,omitempty"`
-	SentAt     *time.Time `json:"sent_at,omitempty"`
-	Size       *int64     `json:"size,omitempty"`
+	Expiration              *time.Time `json:"expiration,omitempty"`
+	Onetime                 *bool      `json:"onetime,omitempty"`
+	Recipient               *string    `json:"recipient,omitempty"`
+	RecipientKeyFingerprint *string    `json:"recipient_key_fingerprint,omitempty"`
+	Reference               *string    `json:"reference,omitempty"`
+	Sender                  *string    `json:"sender,omitempty"`
+	SentAt                  *time.Time `json:"sent_at,omitempty"`
+	Size                    *int64     `json:"size,omitempty"`
 }
 
 // SecretEnvelopeResponse defines model for SecretEnvelopeResponse.
@@ -121,10 +123,11 @@ type GeneralMessageResponse = GeneralMessage
 
 // GeneralMessageWithDownloadResponse defines model for GeneralMessageWithDownloadResponse.
 type GeneralMessageWithDownloadResponse struct {
-	Code            *int    `json:"code"`
-	DownloadUrl     *string `json:"downloadUrl,omitempty"`
-	Message         *string `json:"message"`
-	SecretReference *string `json:"secretReference,omitempty"`
+	Code                    *int    `json:"code"`
+	DownloadUrl             *string `json:"downloadUrl,omitempty"`
+	Message                 *string `json:"message"`
+	RecipientKeyFingerprint *string `json:"recipient_key_fingerprint,omitempty"`
+	SecretReference         *string `json:"secretReference,omitempty"`
 }
 
 // GeneralMessageWithKeyResponse defines model for GeneralMessageWithKeyResponse.
