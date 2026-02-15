@@ -371,7 +371,7 @@ var SecretsDropCmd = &cobra.Command{
 				spew.Dump(secretEnvelopeResponse.JSON201.Users)
 
 			}
-			user_pubs, _ := sdk.GetUserGPGArmoredPubKeysFromIdSlice(&GlobalCtx, secretEnvelopeResponse.JSON201)
+			user_pubs, err := sdk.GetUserGPGArmoredPubKeysFromIdSlice(&GlobalCtx, secretEnvelopeResponse.JSON201)
 
 			if err != nil {
 				fmt.Println(err.Error())
@@ -385,7 +385,18 @@ var SecretsDropCmd = &cobra.Command{
 				return
 			}
 			logrus.Debugf("Found %d keys", len(user_pubs))
-			filename, _ = utils.EncryptFile(filename, user_pubs)
+			for i := range user_pubs {
+				logrus.Debugf("found public key: %s\n", user_pubs[i])
+			}
+			filename, encErr := utils.EncryptFile(filename, user_pubs)
+			if encErr != nil {
+				fmt.Println("Encryption failed")
+				logrus.Debugf("Encryption failed: %s", encErr.Error())
+				return
+
+			}
+
+			logrus.Debugf("shredding tar tmp file: %s\n", tarballFilePath.Name())
 			utils.ShredFile(tarballFilePath.Name(), 3)
 
 			fmt.Println("done!")

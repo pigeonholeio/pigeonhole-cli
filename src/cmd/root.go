@@ -48,6 +48,15 @@ var rootCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
+		// Sync local keys with remote API after successful auth
+		if viper.GetString("auth.accesstoken") != "" {
+			syncErr := auth.SyncKeysWithRemote(GlobalCtx, &PigeonHoleConfig, &PigeonHoleClient)
+			if syncErr != nil {
+				logrus.Debugf("Key sync failed: %v", syncErr)
+				// Non-blocking - continue with command execution
+			}
+		}
+
 		if utils.KeysExist() != true && viper.GetString("auth.accesstoken") != "" {
 			fmt.Println("WARNING: No keys exist yet! Set one with pigeonhole-cli keys init")
 		}

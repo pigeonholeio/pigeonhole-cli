@@ -150,8 +150,10 @@ func GetUserGPGArmoredPubKeysFromIdSlice(ctx *context.Context, secretEnvelopeRes
 	}
 	var keys []string
 	for _, x := range *secretEnvelopeResponse.Users {
+
 		if x.Keys != nil && len(*x.Keys) > 0 {
 			for _, k := range *x.Keys {
+
 				decoded, _ := base64.StdEncoding.DecodeString(*k.KeyData)
 				keys = append(keys, string(decoded))
 			}
@@ -159,6 +161,7 @@ func GetUserGPGArmoredPubKeysFromIdSlice(ctx *context.Context, secretEnvelopeRes
 			return nil, fmt.Errorf("aborting - no public key found for %s", *x.Email)
 		}
 	}
+
 	return keys, nil
 }
 

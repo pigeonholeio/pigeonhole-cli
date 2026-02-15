@@ -24,6 +24,7 @@ func UploadStdin(response SecretEnvelopeResponse) error {
 }
 
 func UploadFile(response SecretEnvelopeResponse, filePath string) error {
+	logrus.Debugf("\nUploadFile: trying to upload file: %s", filePath)
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
