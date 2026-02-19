@@ -171,4 +171,4 @@ push-repo:
 release-packages: build-deb build-rpm build-choco push-repo push-choco
 # curl -s https://packages.pigeono.io/gpg.pub --output - > /etc/apt/trusted.gpg.d/pigeonholeio.gpg
 
-release: trigger-git goreleaser-release release-packages
+release: goreleaser-release release-packages
