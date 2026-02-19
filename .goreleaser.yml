@@ -1,0 +1,111 @@
+version: 2
+project_name: pigeonhole-cli
+report_sizes: true
+metadata:
+  # Set the modified timestamp on the metadata files.
+  #
+  # Templates: allowed.
+  mod_timestamp: "{{ .CommitTimestamp }}"
+builds:
+  - id: default
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    no_unique_dist_dir: false
+
+    dir: src
+    main: .
+    binary: pigeonhole
+    builder: go
+    gobinary: go
+    command: build
+    ldflags:
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.Version={{.Version}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.CommitHash={{.ShortCommit}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.BuildTime={{.Date}}
+      - -X github.com/pigeonholeio/pigeonhole-cli/cmd.BuiltBy=goreleaser
+    env:
+      - CGO_ENABLED=0
+
+snapshot:
+  name_template: '{{ .Version }}-{{.ShortCommit}}'
+signs:
+  - #
+    # ID of the sign config, must be unique.
+    #
+    # Default: 'default'.
+    # id: foo
+    signature: "${artifact}_sig"
+    args:
+    - -u
+    - gpg@pigeono.io
+    - --output
+    - ${signature}
+    - --detach-sign
+    - ${artifact}
+    artifacts: all
+
+
+
+brews:
+  - name: pigeonhole-cli
+    directory: Formula
+
+    repository:
+      # Repository owner template. (templateable)
+      owner: pigeonholeio
+      # Repository name. (templateable)
+      name: homebrew-pigeonhole
+      # Optionally a branch can be provided. (templateable)
+      #
+      # Defaults to the default repository branch.
+      branch: main
+      git:
+        private_key: ~/.ssh/id_rsa
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+# dist: dist
+# source:
+#   name_template: '{{ .ProjectName }}-{{ .Version }}'
+#   format: tar.gz
+gomod:
+  gobinary: go
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^updated'
+
+release:
+  github:
+    owner: pigeonholeio
+    name: pigeonhole-cli
+  name_template: '{{.Tag}}'
+  draft: false
+  replace_existing_draft: true
+  mode: replace
+  header: |
+    # 🚀 A new PigeonHole release 
+
+  footer: |
+    ## That's all folks!
+
+    Those were the changes on {{ .Tag }}!
+    Don't forget if you like the tool and would like to help, there are several ways you can contribute and help the project;
+    1. Simply 🌟 the project
+    2. Provide feedback@pigeono.io or [@pigeonholeio](https://x.com/pigeonholeio)
+    3. [Buy me a Coffee](https://buymeacoffee.com/pigeonholeio)
+
+  skip_upload: false
+
+
+  disable: false

@@ -1,0 +1,35 @@
+{
+  "product": "PigeonHole CLI",
+  "company": "PigeonHole",
+  "license": "LICENSE",
+  "upgrade-code": "D990C437-40F9-4249-9FAB-58ED1BC0A4D2",
+  "files": {
+    "guid": "06005788-C8CC-46A6-B001-4D8C8D36EBF8",
+    "items": [
+      "pigeonhole.exe"
+    ]
+  },
+  "env": {
+    "guid": "10BCA148-C1E4-4CE9-B576-92EA06352B98",
+    "vars": [
+      {
+        "name": "PATH",
+        "value": "[INSTALLDIR]",
+        "permanent": "no",
+        "system": "yes",
+        "action": "set",
+        "part": "last"
+      }
+    ]
+  },
+  "shortcuts": {
+    "guid": "513454CD-CC7A-4BAB-9F66-D572C10828E4",
+    "items": []
+  },
+  "choco": {
+    "description": "PigeonHole CLI is the modern way to send secrets, files or any text securely",
+    "project-url": "https://pigeono.io",
+    "tags": "security encryption secrets cli",
+    "license-url": "https://github.com/pigeonholeio/pigeonhole-cli/blob/main/LICENSE"
+  }
+}

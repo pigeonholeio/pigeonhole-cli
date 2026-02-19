@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <!-- Required: Package ID must be lowercase and use hyphens, not underscores -->
+    <id>pigeonhole-cli</id>
+
+    <!-- Required: Semantic version -->
+    <version>{{VERSION}}</version>
+
+    <!-- Required: Package title (display name) -->
+    <title>PigeonHole CLI</title>
+
+    <!-- Required: Package authors -->
+    <authors>PigeonHole Contributors</authors>
+
+    <!-- Optional: Package owners (typically same as authors for first submission) -->
+    <owners>PigeonHole</owners>
+
+    <!-- Required: Package description -->
+    <description>PigeonHole CLI is the modern way to send secrets, files, or any text securely. Encrypt and share sensitive information using end-to-end encryption with support for multiple recipients.
+
+Features:
+- End-to-end encryption (E2EE)
+- Multi-recipient support
+- File and text sharing
+- GPG-based key management
+- OIDC authentication
+- Modern CLI experience
+
+Installation:
+Once installed via Chocolatey, simply use:
+  pigeonhole --help
+  pigeonhole login
+  pigeonhole secret send
+
+Documentation: Visit https://pigeono.io for full documentation and guides.</description>
+
+    <!-- Required: Package summary (short description) -->
+    <summary>Modern CLI for securely sharing secrets and files with end-to-end encryption</summary>
+
+    <!-- Optional: Project URL -->
+    <projectUrl>https://pigeono.io</projectUrl>
+
+    <!-- Optional: Icon URL (PNG, 200x200px minimum) -->
+    <iconUrl>https://pigeono.io/assets/images/logo-small-transparent.png</iconUrl>
+
+    <!-- Optional: License URL -->
+    <licenseUrl>https://github.com/pigeonholeio/pigeonhole-cli/blob/main/LICENSE</licenseUrl>
+
+    <!-- Required: Tags for searchability -->
+    <tags>pigeonhole cli security encryption sharing secrets</tags>
+
+    <!-- Optional: Requires license acceptance -->
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+
+    <!-- Optional: Copyright -->
+    <copyright>Copyright 2026 PigeonHole Contributors</copyright>
+
+    <!-- Optional: Language -->
+    <language>en-GB</language>
+  </metadata>
+
+  <files>
+    <!-- Include all files in the tools directory -->
+    <file src="tools\**" target="tools" />
+    <!-- Include license -->
+    <file src="LICENSE.txt" target="LICENSE.txt" />
+  </files>
+</package>

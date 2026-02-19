@@ -1,0 +1,72 @@
+VERIFICATION
+
+Verification is intended to assist the Chocolatey community in verifying that this package's contents are trustworthy.
+
+Package Information
+===================
+Product:        PigeonHole CLI
+Version:        {{VERSION}}
+URL:            https://github.com/pigeonholeio/pigeonhole-cli
+License:        MIT (https://github.com/pigeonholeio/pigeonhole-cli/blob/main/LICENSE)
+Author:         Rhys Evans
+Maintainer:     Rhys Evans
+
+Binary Verification
+====================
+The pigeonhole.exe binary included in this package was built from the official
+source code repository at https://github.com/pigeonholeio/pigeonhole-cli.
+
+- Binary Name:      pigeonhole.exe
+- Version:          {{VERSION}}
+- Architecture:     Windows x64 (amd64)
+- File Hash (SHA256): {{CHECKSUM}}
+
+Build Information
+=================
+The Windows binary was compiled using:
+- Language:    Go {{GOVERSION}}
+- Build Tool:  GoReleaser (https://goreleaser.com)
+- Repository:  https://github.com/pigeonholeio/pigeonhole-cli
+- Tag:         v{{VERSION}}
+
+How to Verify
+=============
+1. To verify the binary is functional:
+
+   pigeonhole version
+
+   This should display the version: {{VERSION}}
+
+2. To verify the SHA256 checksum on Windows (PowerShell):
+
+   Get-FileHash "$env:ChocolateyInstall\bin\pigeonhole.exe" -Algorithm SHA256
+
+   The hash should match: {{CHECKSUM}}
+
+3. To verify functionality:
+
+   pigeonhole auth --help
+   pigeonhole secret --help
+
+Source Code Verification
+========================
+The source code for this release can be verified at:
+https://github.com/pigeonholeio/pigeonhole-cli/releases/tag/v{{VERSION}}
+
+All builds are reproducible from the source code using the build configuration
+specified in the repository's .goreleaser.yml file.
+
+Security Information
+====================
+- This package does not make any system modifications beyond copying the executable to PATH
+- No external services are contacted during installation
+- No registry modifications are made
+- User configuration files are stored in %APPDATA%\.pigeonhole
+- The binary is signed with GPG (signature available on GitHub releases)
+
+Support
+=======
+For issues, questions, or to report security vulnerabilities:
+- GitHub Issues: https://github.com/pigeonholeio/pigeonhole-cli/issues
+- Website: https://pigeono.io
+- Email: support@pigeono.io
