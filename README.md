@@ -35,7 +35,6 @@ Configuration files are stored in:
 
 - 📖 **Full Documentation**: https://pigeono.io
 - 🆘 **Troubleshooting**: https://pigeono.io/docs/troubleshooting
-- 🪟 **Windows-Specific**: [Chocolatey Guide](./docs/CHOCOLATEY.md)
 
 ## Support
 
