@@ -166,6 +166,18 @@ type SecretEnvelopeResponse struct {
 	Users *[]User `json:"users,omitempty"`
 }
 
+// SendInvitesResponse defines model for SendInvitesResponse.
+type SendInvitesResponse struct {
+	// FailedEmails List of emails that failed to be invited
+	FailedEmails []openapi_types.Email `json:"failed_emails"`
+
+	// Message Status message
+	Message string `json:"message"`
+
+	// SentCount Number of invitations successfully queued
+	SentCount int `json:"sent_count"`
+}
+
 // Token A JWT token created by PigeonHole after the IdP ID Token has been excha
 type Token struct {
 	// AccessToken A JWT token
@@ -178,6 +190,24 @@ type User struct {
 	Id        *openapi_types.UUID `json:"id,omitempty"`
 	Keys      *[]Key              `json:"keys,omitempty"`
 	Shortcode *string             `json:"shortcode,omitempty"`
+}
+
+// UserCheckResponse defines model for UserCheckResponse.
+type UserCheckResponse struct {
+	// Email Email address checked
+	Email openapi_types.Email `json:"email"`
+
+	// Exists Whether the user exists
+	Exists bool `json:"exists"`
+}
+
+// UsersListResponse defines model for UsersListResponse.
+type UsersListResponse struct {
+	// Message Status message
+	Message string `json:"message"`
+
+	// Users List of authenticated users
+	Users []User `json:"users"`
 }
 
 // GeneralMessageResponse defines model for GeneralMessageResponse.
@@ -251,13 +281,6 @@ type GeneralMessageWithUserResponse struct {
 	User    *User   `json:"user,omitempty"`
 }
 
-// GeneralMessageWithUsersResponse defines model for GeneralMessageWithUsersResponse.
-type GeneralMessageWithUsersResponse struct {
-	Code    *int    `json:"code"`
-	Message *string `json:"message"`
-	Users   *[]User `json:"users,omitempty"`
-}
-
 // Keys defines model for Keys.
 type Keys = []Key
 
@@ -272,8 +295,15 @@ type GetSecretParams struct {
 
 // GetUserParams defines parameters for GetUser.
 type GetUserParams struct {
-	Ephemeralkeys bool                  `form:"ephemeralkeys" json:"ephemeralkeys"`
-	Email         []openapi_types.Email `form:"email" json:"email"`
+	// Email Single email to check user existence
+	Email         *openapi_types.Email `form:"email,omitempty" json:"email,omitempty"`
+	Ephemeralkeys *bool                `form:"ephemeralkeys,omitempty" json:"ephemeralkeys,omitempty"`
+}
+
+// PostUserInviteJSONBody defines parameters for PostUserInvite.
+type PostUserInviteJSONBody struct {
+	// Recipients List of email addresses to invite
+	Recipients []openapi_types.Email `json:"recipients"`
 }
 
 // PostAuthOidcHandlerProviderJSONRequestBody defines body for PostAuthOidcHandlerProvider for application/json ContentType.
@@ -284,6 +314,9 @@ type PostSecretJSONRequestBody = CreateSecretEnvelopeOptions
 
 // PostUserEphemeralUserJSONRequestBody defines body for PostUserEphemeralUser for application/json ContentType.
 type PostUserEphemeralUserJSONRequestBody = CreateEphemeralUserRequest
+
+// PostUserInviteJSONRequestBody defines body for PostUserInvite for application/json ContentType.
+type PostUserInviteJSONRequestBody PostUserInviteJSONBody
 
 // PostUserMeKeyJSONRequestBody defines body for PostUserMeKey for application/json ContentType.
 type PostUserMeKeyJSONRequestBody = NewKey

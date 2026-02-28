@@ -397,6 +397,29 @@ var authLoginCmd = &cobra.Command{
 				PigeonHoleConfig.API.RefreshToken = nil
 				// Also clear identity since GPG keys are stored in the credential store
 				PigeonHoleConfig.Identity = nil
+
+				// Update users_index and active_user in config
+				// Ensure the newly logged-in user is in the users_index
+				if PigeonHoleConfig.UsersIndex == nil {
+					PigeonHoleConfig.UsersIndex = []string{}
+				}
+
+				// Add email to users_index if not already present
+				userExists := false
+				for _, existingUser := range PigeonHoleConfig.UsersIndex {
+					if existingUser == email {
+						userExists = true
+						break
+					}
+				}
+				if !userExists {
+					PigeonHoleConfig.UsersIndex = append(PigeonHoleConfig.UsersIndex, email)
+					logrus.Debugf("Added %s to users_index", email)
+				}
+
+				// Set the active user to the one who just logged in
+				PigeonHoleConfig.ActiveUser = email
+				logrus.Debugf("Set active_user to %s", email)
 			}
 		} else {
 			// Credential store not available - credentials will be saved to config file (FALLBACK)

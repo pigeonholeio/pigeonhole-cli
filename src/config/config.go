@@ -13,8 +13,10 @@ import (
 )
 
 type PigeonHoleConfig struct {
-	API      *ApiConfig               `mapstructure:"api"`
-	Identity map[string]*UserIdentity `mapstructure:"identity"`
+	API       *ApiConfig               `mapstructure:"api"`
+	Identity  map[string]*UserIdentity `mapstructure:"identity"`
+	UsersIndex []string                `mapstructure:"users_index"`
+	ActiveUser string                  `mapstructure:"active_user"`
 }
 
 type ApiConfig struct {
@@ -288,6 +290,26 @@ func (c *PigeonHoleConfig) MarshalYAML() (interface{}, error) {
 		}
 
 		root.Content = append(root.Content, identityKeyNode, identityNode)
+	}
+
+	// Add users_index section
+	if len(c.UsersIndex) > 0 {
+		usersIndexKeyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: "users_index"}
+		usersIndexNode := &yaml.Node{Kind: yaml.SequenceNode}
+
+		for _, user := range c.UsersIndex {
+			usersIndexNode.Content = append(usersIndexNode.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: user})
+		}
+
+		root.Content = append(root.Content, usersIndexKeyNode, usersIndexNode)
+	}
+
+	// Add active_user section
+	if c.ActiveUser != "" {
+		activeUserKeyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: "active_user"}
+		activeUserValueNode := &yaml.Node{Kind: yaml.ScalarNode, Value: c.ActiveUser}
+
+		root.Content = append(root.Content, activeUserKeyNode, activeUserValueNode)
 	}
 
 	return root, nil

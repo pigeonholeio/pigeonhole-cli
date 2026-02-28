@@ -168,10 +168,19 @@ func loadCredentialsFromStore(cfg *config.PigeonHoleConfig, fullConfigPath *stri
 	storeBackend := store.Backend()
 	logrus.Debugf("Credential store available (%s), loading credentials from it", storeBackend)
 
+	// Load users_index and active_user from credential store (Step 3)
+	if discoveredUsers, err := store.DiscoverUsers(); err == nil {
+		cfg.UsersIndex = discoveredUsers
+		logrus.Debugf("Loaded users_index from %s: %v", storeBackend, discoveredUsers)
+	} else {
+		logrus.Debugf("Could not discover users from credential store: %v", err)
+	}
+
 	// Try to load active user from credential store
 	activeUser, err := store.GetActiveUser()
 	if err == nil && activeUser != "" {
 		logrus.Debugf("Loaded active user from %s: %s", storeBackend, activeUser)
+		cfg.ActiveUser = activeUser
 		email := activeUser
 
 		// Load tokens from credential store

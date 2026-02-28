@@ -1,4 +1,4 @@
-OPENAPI_PATH := "../server/src/docs/swagger.yaml"
+OPENAPI_PATH := "../common/openapi-spec.yaml"
 SDK_PATH := /Users/rhysevans/git/pigeonhole/api
 VERSION := $(shell yq eval '.metadata.version' artefact.yml)
 
@@ -13,7 +13,7 @@ generate-openapi-sdk:
 
 
 	
-trigger-git:
+bump:
 	./bump-version.sh
 
 
@@ -168,7 +168,9 @@ build-msi:
 full-release-packages: build-rpm-releaser build-deb-releaser build-deb build-rpm build-choco build-msi
 push-repo:
 	cd ../repo && git add . && git commit -m"Release $(shell yq eval -P '.metadata.version' ./artefact.yml)" && git push
+
 release-packages: build-deb build-rpm build-choco push-repo push-choco
+# release-packages: build-deb build-rpm build-choco push-repo push-choco
 # curl -s https://packages.pigeono.io/gpg.pub --output - > /etc/apt/trusted.gpg.d/pigeonholeio.gpg
 
 release: goreleaser-release release-packages

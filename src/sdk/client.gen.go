@@ -131,6 +131,11 @@ type ClientInterface interface {
 
 	PostUserEphemeralUser(ctx context.Context, body PostUserEphemeralUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostUserInviteWithBody request with any body
+	PostUserInviteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostUserInvite(ctx context.Context, body PostUserInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetUserMe request
 	GetUserMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -343,6 +348,30 @@ func (c *Client) PostUserEphemeralUserWithBody(ctx context.Context, contentType 
 
 func (c *Client) PostUserEphemeralUser(ctx context.Context, body PostUserEphemeralUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostUserEphemeralUserRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInviteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInviteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInvite(ctx context.Context, body PostUserInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInviteRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -890,28 +919,36 @@ func NewGetUserRequest(server string, params *GetUserParams) (*http.Request, err
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "ephemeralkeys", runtime.ParamLocationQuery, params.Ephemeralkeys); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
+		if params.Email != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "email", runtime.ParamLocationQuery, *params.Email); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
 				}
 			}
+
 		}
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "email", runtime.ParamLocationQuery, params.Email); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
+		if params.Ephemeralkeys != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "ephemeralkeys", runtime.ParamLocationQuery, *params.Ephemeralkeys); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
 				}
 			}
+
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
@@ -973,6 +1010,46 @@ func NewPostUserEphemeralUserRequestWithBody(server string, contentType string, 
 	}
 
 	operationPath := fmt.Sprintf("/user/ephemeral-user")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostUserInviteRequest calls the generic PostUserInvite builder with application/json body
+func NewPostUserInviteRequest(server string, body PostUserInviteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostUserInviteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostUserInviteRequestWithBody generates requests for PostUserInvite with any type of body
+func NewPostUserInviteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/invite")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1503,6 +1580,11 @@ type ClientWithResponsesInterface interface {
 
 	PostUserEphemeralUserWithResponse(ctx context.Context, body PostUserEphemeralUserJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserEphemeralUserResponse, error)
 
+	// PostUserInviteWithBodyWithResponse request with any body
+	PostUserInviteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInviteResponse, error)
+
+	PostUserInviteWithResponse(ctx context.Context, body PostUserInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInviteResponse, error)
+
 	// GetUserMeWithResponse request
 	GetUserMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetUserMeResponse, error)
 
@@ -1794,12 +1876,14 @@ func (r GetSecretSecretIdDownloadResponse) StatusCode() int {
 type GetUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *GeneralMessageWithUsersResponse
-	JSON400      *GeneralMessage
-	JSON401      *GeneralMessage
-	JSON403      *GeneralMessage
-	JSON404      *GeneralMessage
-	JSON500      *GeneralMessage
+	JSON200      *struct {
+		union json.RawMessage
+	}
+	JSON400 *GeneralMessage
+	JSON401 *GeneralMessage
+	JSON403 *GeneralMessage
+	JSON404 *GeneralMessage
+	JSON500 *GeneralMessage
 }
 
 // Status returns HTTPResponse.Status
@@ -1871,6 +1955,33 @@ func (r PostUserEphemeralUserResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PostUserEphemeralUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostUserInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SendInvitesResponse
+	JSON400      *GeneralMessage
+	JSON401      *GeneralMessage
+	JSON403      *GeneralMessage
+	JSON404      *GeneralMessage
+	JSON500      *GeneralMessage
+}
+
+// Status returns HTTPResponse.Status
+func (r PostUserInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostUserInviteResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2293,6 +2404,23 @@ func (c *ClientWithResponses) PostUserEphemeralUserWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParsePostUserEphemeralUserResponse(rsp)
+}
+
+// PostUserInviteWithBodyWithResponse request with arbitrary body returning *PostUserInviteResponse
+func (c *ClientWithResponses) PostUserInviteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInviteResponse, error) {
+	rsp, err := c.PostUserInviteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInviteResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostUserInviteWithResponse(ctx context.Context, body PostUserInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInviteResponse, error) {
+	rsp, err := c.PostUserInvite(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInviteResponse(rsp)
 }
 
 // GetUserMeWithResponse request returning *GetUserMeResponse
@@ -3011,7 +3139,9 @@ func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest GeneralMessageWithUsersResponse
+		var dest struct {
+			union json.RawMessage
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3143,6 +3273,67 @@ func ParsePostUserEphemeralUserResponse(rsp *http.Response) (*PostUserEphemeralU
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest GeneralMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostUserInviteResponse parses an HTTP response from a PostUserInviteWithResponse call
+func ParsePostUserInviteResponse(rsp *http.Response) (*PostUserInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostUserInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SendInvitesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest GeneralMessage
