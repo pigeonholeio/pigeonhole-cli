@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -49,6 +50,9 @@ func NewPostAuthOidcCleverHandlerRequestWithBody(provider *OIDCProvider, content
 	var err error
 
 	handlerUrl, err := url.Parse(*provider.HandlerUrl)
+	if err != nil {
+		return nil, fmt.Errorf("invalid handler URL: %w", err)
+	}
 
 	req, err := http.NewRequest("POST", handlerUrl.String(), body)
 	if err != nil {

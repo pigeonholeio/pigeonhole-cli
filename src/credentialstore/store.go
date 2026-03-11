@@ -33,11 +33,11 @@ type Store interface {
 	// GetGPGPublicKey retrieves the GPG public key
 	GetGPGPublicKey(userEmail string) (string, error)
 
-	// SaveGPGThumbprint saves the GPG key thumbprint
-	SaveGPGThumbprint(userEmail string, thumbprint string) error
+	// SaveGPGFingerprint saves the GPG key fingerprint
+	SaveGPGFingerprint(userEmail string, fingerprint string) error
 
-	// GetGPGThumbprint retrieves the GPG key thumbprint
-	GetGPGThumbprint(userEmail string) (string, error)
+	// GetGPGFingerprint retrieves the GPG key fingerprint
+	GetGPGFingerprint(userEmail string) (string, error)
 
 	// DeleteAllCredentials removes all credentials for a user
 	DeleteAllCredentials(userEmail string) error

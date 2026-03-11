@@ -147,9 +147,12 @@ func performUpload(reader io.Reader, response *SecretEnvelopeResponse, callURL s
 		"Content-Disposition": []string{"form-data; name=\"file\"; filename=\"" + *response.S3Info.Fields.Key + "\""},
 		"Content-Type":        []string{"application/octet-stream"}, // Set the appropriate MIME type
 	})
+	if err != nil {
+		return fmt.Errorf("failed to create multipart: %w", err)
+	}
 
 	if _, err = io.Copy(part, reader); err != nil {
-		panic(err)
+		return fmt.Errorf("failed to copy data to upload: %w", err)
 	}
 	mpWriter.Close()
 	logrus.Debugf("HTTP POST URL: %s", callURL)
@@ -164,6 +167,7 @@ func performUpload(reader io.Reader, response *SecretEnvelopeResponse, callURL s
 	if err != nil {
 		return err
 	}
+	defer responseHTTP.Body.Close()
 	if responseHTTP.StatusCode == http.StatusBadRequest {
 		return fmt.Errorf("Secret rejected for exceeding your quota")
 		// fmt.Println("")

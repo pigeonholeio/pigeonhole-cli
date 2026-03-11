@@ -51,9 +51,9 @@ func SyncKeysWithRemote(ctx context.Context, cfg *config.PigeonHoleConfig, clien
 	logrus.Debugln("Syncing local keys with remote API")
 
 	// Get user email
-	email, err := cfg.GetUserName()
+	email, err := cfg.GetUserEmail()
 	if err != nil {
-		logrus.Debugf("Failed to get username: %v", err)
+		logrus.Debugf("Failed to get user email: %v", err)
 		return nil // Non-blocking
 	}
 
@@ -69,9 +69,9 @@ func SyncKeysWithRemote(ctx context.Context, cfg *config.PigeonHoleConfig, clien
 		return nil
 	}
 
-	localThumbprint := identity.GPGKey.Thumbprint
-	if localThumbprint == nil || *localThumbprint == "" {
-		logrus.Debugln("Local key thumbprint is empty")
+	localFingerprint := identity.GPGKey.Fingerprint
+	if localFingerprint == nil || *localFingerprint == "" {
+		logrus.Debugln("Local key fingerprint is empty")
 		return nil
 	}
 
@@ -91,7 +91,7 @@ func SyncKeysWithRemote(ctx context.Context, cfg *config.PigeonHoleConfig, clien
 	found := false
 	if remoteKeysResp.JSON200.Keys != nil {
 		for _, remoteKey := range *remoteKeysResp.JSON200.Keys {
-			if remoteKey.Thumbprint != nil && *remoteKey.Thumbprint == *localThumbprint {
+			if remoteKey.Fingerprint != nil && *remoteKey.Fingerprint == *localFingerprint {
 				found = true
 				logrus.Debugln("Local key matches remote key")
 				break
@@ -110,8 +110,8 @@ func SyncKeysWithRemote(ctx context.Context, cfg *config.PigeonHoleConfig, clien
 
 		hostname, _ := os.Hostname()
 		newKey := sdk.NewKey{
-			KeyData:    &decodedKey,
-			Thumbprint: localThumbprint,
+			KeyData:     &decodedKey,
+			Fingerprint: localFingerprint,
 		}
 		if hostname != "" {
 			newKey.Reference = &hostname

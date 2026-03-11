@@ -43,7 +43,10 @@ func (ht HumanTime) MarshalYAML() (interface{}, error) {
 }
 
 func ToSecretView(s Secret) SecretView {
-	size := humanize.Bytes(uint64(*s.Size))
+	size := ""
+	if s.Size != nil {
+		size = humanize.Bytes(uint64(*s.Size))
+	}
 	return SecretView{
 		Reference:  s.Reference,
 		Size:       &size,
@@ -68,16 +71,22 @@ func ToSecretViewSlice(secrets []Secret) []SecretView {
 
 // SecretView defines model for SecretView.
 type SecretView struct {
-	Reference  *string    `json:"reference,omitempty"`
-	Sent       *HumanTime `json:"sent_at,omitempty"`
-	Expiration *HumanTime `json:"expiration,omitempty"`
-	Recipient  *string    `json:"recipient,omitempty"`
-	Sender     *string    `json:"sender,omitempty"`
-	Size       *string    `json:"size,omitempty"`
-	OneTime    *bool      `json:"onetime,omitempty"`
+	Reference   *string    `json:"reference,omitempty"`
+	Sent        *HumanTime `json:"sent_at,omitempty"`
+	Expiration  *HumanTime `json:"expiration,omitempty"`
+	Recipient   *string    `json:"recipient,omitempty"`
+	Sender      *string    `json:"sender,omitempty"`
+	Size        *string    `json:"size,omitempty"`
+	OneTime     *bool      `json:"onetime,omitempty"`
+	Decryptable *bool      `json:"decryptable,omitempty"`
 }
 
 func PigeonholeClient(cfg *config.PigeonHoleConfig, version string) *ClientWithResponses {
+	// Guard against nil config
+	if cfg == nil || cfg.API == nil || cfg.API.Url == nil {
+		return nil
+	}
+
 	// Set up transport with TLS 1.3 if HTTPS
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if strings.HasPrefix(*cfg.API.Url, "https://") {
@@ -151,7 +160,7 @@ func PigeonholeClient(cfg *config.PigeonHoleConfig, version string) *ClientWithR
 }
 
 func GetUserGPGArmoredPubKeysFromIdSlice(ctx *context.Context, secretEnvelopeResponse *SecretEnvelopeResponse) ([]string, error) {
-	if *secretEnvelopeResponse.Users == nil {
+	if secretEnvelopeResponse.Users == nil || *secretEnvelopeResponse.Users == nil {
 		return nil, fmt.Errorf("no users found on Secret Envelope")
 	}
 	var keys []string
@@ -160,7 +169,10 @@ func GetUserGPGArmoredPubKeysFromIdSlice(ctx *context.Context, secretEnvelopeRes
 		if x.Keys != nil && len(*x.Keys) > 0 {
 			for _, k := range *x.Keys {
 
-				decoded, _ := base64.StdEncoding.DecodeString(*k.KeyData)
+				decoded, err := base64.StdEncoding.DecodeString(*k.KeyData)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode key data: %w", err)
+				}
 				keys = append(keys, string(decoded))
 			}
 		} else {

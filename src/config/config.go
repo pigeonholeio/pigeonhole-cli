@@ -33,7 +33,6 @@ type UserIdentity struct {
 type GPGPair struct {
 	PublicKey   *string `mapstructure:"publicKey"`
 	PrivateKey  *string `mapstructure:"privateKey"`
-	Thumbprint  *string `mapstructure:"thumbprint"`
 	Fingerprint *string `mapstructure:"fingerprint"`
 }
 
@@ -85,12 +84,24 @@ func (c *GPGPair) VerifyEmail(email string) (bool, error) {
 }
 
 func (c *GPGPair) DecodedPrivateKey() (string, error) {
-	s, _ := utils.DecodeFromBase64(*c.PrivateKey)
+	if c == nil || c.PrivateKey == nil {
+		return "", fmt.Errorf("GPGPair or PrivateKey is nil")
+	}
+	s, err := utils.DecodeFromBase64(*c.PrivateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode private key: %w", err)
+	}
 	return s, nil
 }
 
 func (c *GPGPair) DecodedPublicKey() (string, error) {
-	s, _ := utils.DecodeFromBase64(*c.PrivateKey)
+	if c == nil || c.PublicKey == nil {
+		return "", fmt.Errorf("GPGPair or PublicKey is nil")
+	}
+	s, err := utils.DecodeFromBase64(*c.PublicKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode public key: %w", err)
+	}
 	return s, nil
 }
 
@@ -103,10 +114,13 @@ func (c *GPGPair) EncodePublicKey(armoredKey string) error {
 }
 
 func (c *GPGPair) EnsureKeyPair(name, email *string) error {
-	logrus.Debugf("Calling EnsureKeyPair with %s (%s)", *name, *email)
 	if c == nil {
-		*c = GPGPair{}
+		return fmt.Errorf("GPGPair receiver is nil")
 	}
+	if name == nil || email == nil {
+		return fmt.Errorf("name and email cannot be nil")
+	}
+	logrus.Debugf("Calling EnsureKeyPair with %s (%s)", *name, *email)
 	emailFound, err := c.VerifyEmail(*email)
 	if err != nil {
 		return err
@@ -136,16 +150,12 @@ func (c *GPGPair) CreateKeyPair(name, email string) error {
 	if c.PublicKey == nil {
 		c.PublicKey = new(string)
 	}
-	if c.Thumbprint == nil {
-		c.Thumbprint = new(string)
-	}
 	if c.Fingerprint == nil {
 		c.Fingerprint = new(string)
 	}
 
 	*c.PrivateKey = utils.EncodeToBase64(priv)
 	*c.PublicKey = utils.EncodeToBase64(pub)
-	*c.Thumbprint = fingerprint
 	*c.Fingerprint = fingerprint
 
 	return nil
@@ -273,10 +283,7 @@ func (c *PigeonHoleConfig) MarshalYAML() (interface{}, error) {
 					gpgKeyNode.Content = append(gpgKeyNode.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "privateKey"})
 					gpgKeyNode.Content = append(gpgKeyNode.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: *identity.GPGKey.PrivateKey})
 				}
-				if identity.GPGKey.Thumbprint != nil {
-					gpgKeyNode.Content = append(gpgKeyNode.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "thumbprint"})
-					gpgKeyNode.Content = append(gpgKeyNode.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: *identity.GPGKey.Thumbprint})
-				}
+
 				if identity.GPGKey.Fingerprint != nil {
 					gpgKeyNode.Content = append(gpgKeyNode.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "fingerprint"})
 					gpgKeyNode.Content = append(gpgKeyNode.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: *identity.GPGKey.Fingerprint})
@@ -356,7 +363,7 @@ func (c *PigeonHoleConfig) GetUserEmail() (string, error) {
 // IsTokenExpired checks if the access token has expired
 func (c *PigeonHoleConfig) IsTokenExpired() bool {
 	if c == nil || c.API == nil || c.API.TokenExpiry == nil {
-		return false
+		return true
 	}
 	return time.Now().Unix() > *c.API.TokenExpiry
 }
@@ -451,9 +458,9 @@ func (c *PigeonHoleConfig) SaveGPGKeysToStore(store credentialstore.Store, userE
 		}
 	}
 
-	if gpgKey.Thumbprint != nil && *gpgKey.Thumbprint != "" {
-		if err := store.SaveGPGThumbprint(userEmail, *gpgKey.Thumbprint); err != nil {
-			logrus.Errorf("failed to save GPG thumbprint: %v", err)
+	if gpgKey.Fingerprint != nil && *gpgKey.Fingerprint != "" {
+		if err := store.SaveGPGFingerprint(userEmail, *gpgKey.Fingerprint); err != nil {
+			logrus.Errorf("failed to save GPG fingerprint: %v", err)
 			return err
 		}
 	}
@@ -483,12 +490,11 @@ func (c *PigeonHoleConfig) LoadGPGKeysFromStore(store credentialstore.Store, use
 		logrus.Debugf("no GPG public key in credential store: %v", err)
 	}
 
-	thumbprint, err := store.GetGPGThumbprint(userEmail)
-	if err == nil && thumbprint != "" {
-		identity.GPGKey.Thumbprint = &thumbprint
-		identity.GPGKey.Fingerprint = &thumbprint
+	fingerprint, err := store.GetGPGFingerprint(userEmail)
+	if err == nil && fingerprint != "" {
+		identity.GPGKey.Fingerprint = &fingerprint
 	} else if err != nil {
-		logrus.Debugf("no GPG thumbprint in credential store: %v", err)
+		logrus.Debugf("no GPG fingerprint in credential store: %v", err)
 	}
 
 	return identity, nil

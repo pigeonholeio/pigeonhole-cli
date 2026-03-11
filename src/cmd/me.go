@@ -71,7 +71,11 @@ var MeShowCmd = &cobra.Command{
 	Long:  `A brief overview of your details containging email, keys, id and shortcode`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Context()
-		me, _ := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
+		me, err := PigeonHoleClient.GetUserMeWithResponse(GlobalCtx)
+		if err != nil {
+			fmt.Println("Failed to fetch user info")
+			return
+		}
 
 		if me.StatusCode() == 200 && me.JSON200 != nil && me.JSON200.User != nil {
 			utils.OutputData(me.JSON200.User)

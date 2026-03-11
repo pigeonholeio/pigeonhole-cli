@@ -23,21 +23,39 @@ var statsCmd = &cobra.Command{
 			return
 		}
 
-		if resp.JSON200 != nil {
+		if resp.JSON200 != nil && resp.JSON200.Analytics != nil {
+		analytics := resp.JSON200.Analytics
+		if analytics.SecretsSent == nil || analytics.SecretsReceived == nil ||
+			analytics.ActiveSecretsSent == nil || analytics.MaxSecretsQuota == nil ||
+			analytics.TotalBytesSent == nil || analytics.MaxBytesQuota == nil {
+			fmt.Println("Failed to retrieve complete analytics data")
+			return
+		}
+
+		// Calculate percentages with divide-by-zero guards
+		secretsQuotaPercent := 0.0
+		if *analytics.MaxSecretsQuota > 0 {
+			secretsQuotaPercent = float64(*analytics.ActiveSecretsSent) / float64(*analytics.MaxSecretsQuota) * 100
+		}
+
+		bytesQuotaPercent := 0.0
+		if *analytics.MaxBytesQuota > 0 {
+			bytesQuotaPercent = float64(*analytics.TotalBytesSent) / float64(*analytics.MaxBytesQuota) * 100
+		}
 			// Format the analytics data for YAML output
 			analyticsOutput := map[string]interface{}{
 				"analytics": map[string]interface{}{
 					"secrets": map[string]interface{}{
-						"sent":                    *resp.JSON200.Analytics.SecretsSent,
-						"received":                *resp.JSON200.Analytics.SecretsReceived,
-						"active_sent":             *resp.JSON200.Analytics.ActiveSecretsSent,
-						"max_quota":               *resp.JSON200.Analytics.MaxSecretsQuota,
-						"quota_used_percentage":   float64(*resp.JSON200.Analytics.ActiveSecretsSent) / float64(*resp.JSON200.Analytics.MaxSecretsQuota) * 100,
+						"sent":                    *analytics.SecretsSent,
+						"received":                *analytics.SecretsReceived,
+						"active_sent":             *analytics.ActiveSecretsSent,
+						"max_quota":               *analytics.MaxSecretsQuota,
+						"quota_used_percentage":   secretsQuotaPercent,
 					},
 					"data": map[string]interface{}{
-						"total_bytes_sent":    *resp.JSON200.Analytics.TotalBytesSent,
-						"max_bytes_quota":     *resp.JSON200.Analytics.MaxBytesQuota,
-						"quota_used_percentage": float64(*resp.JSON200.Analytics.TotalBytesSent) / float64(*resp.JSON200.Analytics.MaxBytesQuota) * 100,
+						"total_bytes_sent":        *analytics.TotalBytesSent,
+						"max_bytes_quota":         *analytics.MaxBytesQuota,
+						"quota_used_percentage":   bytesQuotaPercent,
 					},
 				},
 			}

@@ -19,6 +19,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -57,17 +58,20 @@ pigeonhole key create
 		fmt.Print("Creating and pushing your new GPG key...")
 		// claims, _ := utils.DecodePigeonHoleJWT(PigeonHoleConfig.API.AccessToken)
 		// pub, priv, _, _ := utils.CreateGPGKeyPair(claims["name"].(string), claims["preferred_username"].(string))
-		email, err := PigeonHoleConfig.GetUserName()
-		identity := PigeonHoleConfig.Identity[email]
-		if identity.GPGKey.KeyExists() {
-			fmt.Println("No key found for email")
-		} else {
-			logrus.Debugf(identity.GPGKey.DecodedPublicKey())
+		email, err := PigeonHoleConfig.GetUserEmail()
+		if err != nil {
+			fmt.Printf("Error getting user email: %v\n", err)
+			return
 		}
-		return
-		// PigeonHoleConfig.GpgKeys[email]
-		// PigeonHoleConfig.GpgKeys.PrivateKeyBase64 = utils.EncodeToBase64(priv)
-		// PigeonHoleConfig.GpgKeys.PublicKeyBase64 = utils.EncodeToBase64(pub)
+		identity, ok := PigeonHoleConfig.Identity[email]
+		if !ok || identity == nil {
+			fmt.Println("No identity found for user")
+			return
+		}
+		if !identity.GPGKey.KeyExists() {
+			fmt.Println("No key found for email")
+			return
+		}
 
 		reference, _ := cmd.Flags().GetString("reference")
 		clear, _ := cmd.Flags().GetBool("clear")
@@ -145,6 +149,7 @@ to quickly create a Cobra application.`,
 			// fmt.Printf("ERROR: %s", err.Error())
 			fmt.Println("Something went wrong - could not list keys!")
 			logrus.Debugln(err.Error())
+			return
 		}
 		if x.StatusCode() == 200 && x.JSON200 != nil && x.JSON200.Keys != nil {
 			if len(*x.JSON200.Keys) > 0 {
@@ -162,7 +167,7 @@ to quickly create a Cobra application.`,
 func regenerateKey(force bool) {
 	// Create a new context with longer timeout to account for user input delays
 	// The default command context is 60s, but with user confirmations this may not be enough
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(GlobalCtx, 5*time.Minute)
 	defer cancel()
 
 	// Get user email
@@ -207,7 +212,7 @@ func regenerateKey(force bool) {
 		return
 	}
 
-	localFingerprint := localKey.Thumbprint
+	localFingerprint := localKey.Fingerprint
 	if localFingerprint == nil || *localFingerprint == "" {
 		fmt.Println("❌ Local key fingerprint is missing")
 		return
@@ -233,7 +238,7 @@ func regenerateKey(force bool) {
 	if remoteKeysResp.JSON200.Keys != nil && len(*remoteKeysResp.JSON200.Keys) > 0 {
 		remoteKeyCount = len(*remoteKeysResp.JSON200.Keys)
 		for _, k := range *remoteKeysResp.JSON200.Keys {
-			if k.Thumbprint != nil && *k.Thumbprint == *localFingerprint {
+			if k.Fingerprint != nil && *k.Fingerprint == *localFingerprint {
 				remoteKey = &k
 				break
 			}
@@ -266,7 +271,12 @@ func regenerateKey(force bool) {
 	if remoteKey == nil && remoteKeyCount > 0 {
 		if !force {
 			fmt.Print("\nDo you want to continue regenerating your local key? (yes/no): ")
-			if !getConfirmation() {
+			confirmed, err := getConfirmation()
+			if err != nil {
+				fmt.Printf("Error reading input: %v\n", err)
+				return
+			}
+			if !confirmed {
 				fmt.Println("Regeneration cancelled.")
 				return
 			}
@@ -279,7 +289,12 @@ func regenerateKey(force bool) {
 		fmt.Println("Regenerating your key will make these secrets unreadable.")
 		fmt.Print("\nDo you want to continue? (yes/no): ")
 
-		if !getConfirmation() {
+		confirmed, err := getConfirmation()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			return
+		}
+		if !confirmed {
 			fmt.Println("Regeneration cancelled.")
 			return
 		}
@@ -296,7 +311,12 @@ func regenerateKey(force bool) {
 		}
 		fmt.Print("\nDo you want to continue? (yes/no): ")
 
-		if !getConfirmation() {
+		confirmed, err := getConfirmation()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			return
+		}
+		if !confirmed {
 			fmt.Println("Regeneration cancelled.")
 			return
 		}
@@ -316,7 +336,7 @@ func regenerateKey(force bool) {
 	// fmt.Println(" done!")
 
 	// Get new key details
-	newFingerprint := newKey.Thumbprint
+	newFingerprint := newKey.Fingerprint
 	if newFingerprint == nil || *newFingerprint == "" {
 		fmt.Println("❌ New key fingerprint is missing")
 		return
@@ -331,7 +351,7 @@ func regenerateKey(force bool) {
 		Force:      nil,
 		KeyData:    newKey.PublicKey,
 		Reference:  &hostname,
-		Thumbprint: newKey.Thumbprint,
+		Fingerprint: newKey.Fingerprint,
 	}
 
 	uploadResp, err := PigeonHoleClient.PostUserMeKeyWithResponse(ctx, uploadPayload)
@@ -404,11 +424,14 @@ func regenerateKey(force bool) {
 }
 
 // getConfirmation prompts the user for yes/no confirmation
-func getConfirmation() bool {
+func getConfirmation() (bool, error) {
 	reader := bufio.NewReader(os.Stdin)
-	response, _ := reader.ReadString('\n')
+	response, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return false, err
+	}
 	response = strings.TrimSpace(strings.ToLower(response))
-	return response == "yes" || response == "y"
+	return response == "yes" || response == "y", nil
 }
 
 func init() {

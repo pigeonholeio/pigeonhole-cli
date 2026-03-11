@@ -78,16 +78,26 @@ func (ks *KeyringStore) GetGPGPublicKey(userEmail string) (string, error) {
 	return keyring.Get(serviceName, fmt.Sprintf("gpg-public:%s", userEmail))
 }
 
-// SaveGPGThumbprint saves the GPG key thumbprint to keyring
-func (ks *KeyringStore) SaveGPGThumbprint(userEmail string, thumbprint string) error {
-	logrus.Debugf("Saving GPG thumbprint for %s to keyring", userEmail)
-	return keyring.Set(serviceName, fmt.Sprintf("gpg-thumbprint:%s", userEmail), thumbprint)
+// SaveGPGFingerprint saves the GPG key fingerprint to keyring
+func (ks *KeyringStore) SaveGPGFingerprint(userEmail string, fingerprint string) error {
+	logrus.Debugf("Saving GPG fingerprint for %s to keyring", userEmail)
+	return keyring.Set(serviceName, fmt.Sprintf("gpg-fingerprint:%s", userEmail), fingerprint)
 }
 
-// GetGPGThumbprint retrieves the GPG key thumbprint from keyring
-func (ks *KeyringStore) GetGPGThumbprint(userEmail string) (string, error) {
-	logrus.Debugf("Retrieving GPG thumbprint for %s from keyring", userEmail)
-	return keyring.Get(serviceName, fmt.Sprintf("gpg-thumbprint:%s", userEmail))
+// GetGPGFingerprint retrieves the GPG key fingerprint from keyring
+func (ks *KeyringStore) GetGPGFingerprint(userEmail string) (string, error) {
+	logrus.Debugf("Retrieving GPG fingerprint for %s from keyring", userEmail)
+	fingerprint, err := keyring.Get(serviceName, fmt.Sprintf("gpg-fingerprint:%s", userEmail))
+	if err == nil && fingerprint != "" {
+		return fingerprint, nil
+	}
+	// Fallback: migrate from legacy thumbprint key
+	thumbprint, err := keyring.Get(serviceName, fmt.Sprintf("gpg-thumbprint:%s", userEmail))
+	if err == nil && thumbprint != "" {
+		_ = ks.SaveGPGFingerprint(userEmail, thumbprint)
+		return thumbprint, nil
+	}
+	return "", err
 }
 
 // DeleteAllCredentials removes all credentials for a user from keyring
@@ -97,7 +107,8 @@ func (ks *KeyringStore) DeleteAllCredentials(userEmail string) error {
 		fmt.Sprintf("refresh-token:%s", userEmail),
 		fmt.Sprintf("gpg-private:%s", userEmail),
 		fmt.Sprintf("gpg-public:%s", userEmail),
-		fmt.Sprintf("gpg-thumbprint:%s", userEmail),
+		fmt.Sprintf("gpg-fingerprint:%s", userEmail),
+		fmt.Sprintf("gpg-thumbprint:%s", userEmail), // Legacy key for migration
 	}
 
 	logrus.Debugf("Deleting all credentials for %s from keyring", userEmail)

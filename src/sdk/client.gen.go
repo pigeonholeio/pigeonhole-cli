@@ -147,8 +147,8 @@ type ClientInterface interface {
 
 	PostUserMeKey(ctx context.Context, body PostUserMeKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetUserMeKeyValidateThumbprint request
-	GetUserMeKeyValidateThumbprint(ctx context.Context, thumbprint string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetUserMeKeyValidateFingerprint request
+	GetUserMeKeyValidateFingerprint(ctx context.Context, fingerprint string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserUserId request
 	GetUserUserId(ctx context.Context, userId string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -161,8 +161,8 @@ type ClientInterface interface {
 
 	PostUserUserIdKey(ctx context.Context, userId string, body PostUserUserIdKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetUserUserIdKeyValidateThumbprint request
-	GetUserUserIdKeyValidateThumbprint(ctx context.Context, userId string, thumbprint string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetUserUserIdKeyValidateFingerprint request
+	GetUserUserIdKeyValidateFingerprint(ctx context.Context, userId string, fingerprint string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserUserIdKeyKeyIdWithBody request with any body
 	DeleteUserUserIdKeyKeyIdWithBody(ctx context.Context, userId string, keyId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -430,8 +430,8 @@ func (c *Client) PostUserMeKey(ctx context.Context, body PostUserMeKeyJSONReques
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetUserMeKeyValidateThumbprint(ctx context.Context, thumbprint string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetUserMeKeyValidateThumbprintRequest(c.Server, thumbprint)
+func (c *Client) GetUserMeKeyValidateFingerprint(ctx context.Context, fingerprint string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserMeKeyValidateFingerprintRequest(c.Server, fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -490,8 +490,8 @@ func (c *Client) PostUserUserIdKey(ctx context.Context, userId string, body Post
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetUserUserIdKeyValidateThumbprint(ctx context.Context, userId string, thumbprint string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetUserUserIdKeyValidateThumbprintRequest(c.Server, userId, thumbprint)
+func (c *Client) GetUserUserIdKeyValidateFingerprint(ctx context.Context, userId string, fingerprint string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserUserIdKeyValidateFingerprintRequest(c.Server, userId, fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -1163,13 +1163,13 @@ func NewPostUserMeKeyRequestWithBody(server string, contentType string, body io.
 	return req, nil
 }
 
-// NewGetUserMeKeyValidateThumbprintRequest generates requests for GetUserMeKeyValidateThumbprint
-func NewGetUserMeKeyValidateThumbprintRequest(server string, thumbprint string) (*http.Request, error) {
+// NewGetUserMeKeyValidateFingerprintRequest generates requests for GetUserMeKeyValidateFingerprint
+func NewGetUserMeKeyValidateFingerprintRequest(server string, fingerprint string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "thumbprint", runtime.ParamLocationPath, thumbprint)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "fingerprint", runtime.ParamLocationPath, fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -1312,8 +1312,8 @@ func NewPostUserUserIdKeyRequestWithBody(server string, userId string, contentTy
 	return req, nil
 }
 
-// NewGetUserUserIdKeyValidateThumbprintRequest generates requests for GetUserUserIdKeyValidateThumbprint
-func NewGetUserUserIdKeyValidateThumbprintRequest(server string, userId string, thumbprint string) (*http.Request, error) {
+// NewGetUserUserIdKeyValidateFingerprintRequest generates requests for GetUserUserIdKeyValidateFingerprint
+func NewGetUserUserIdKeyValidateFingerprintRequest(server string, userId string, fingerprint string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1325,7 +1325,7 @@ func NewGetUserUserIdKeyValidateThumbprintRequest(server string, userId string, 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "thumbprint", runtime.ParamLocationPath, thumbprint)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "fingerprint", runtime.ParamLocationPath, fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -1596,8 +1596,8 @@ type ClientWithResponsesInterface interface {
 
 	PostUserMeKeyWithResponse(ctx context.Context, body PostUserMeKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserMeKeyResponse, error)
 
-	// GetUserMeKeyValidateThumbprintWithResponse request
-	GetUserMeKeyValidateThumbprintWithResponse(ctx context.Context, thumbprint string, reqEditors ...RequestEditorFn) (*GetUserMeKeyValidateThumbprintResponse, error)
+	// GetUserMeKeyValidateFingerprintWithResponse request
+	GetUserMeKeyValidateFingerprintWithResponse(ctx context.Context, fingerprint string, reqEditors ...RequestEditorFn) (*GetUserMeKeyValidateFingerprintResponse, error)
 
 	// GetUserUserIdWithResponse request
 	GetUserUserIdWithResponse(ctx context.Context, userId string, reqEditors ...RequestEditorFn) (*GetUserUserIdResponse, error)
@@ -1610,8 +1610,8 @@ type ClientWithResponsesInterface interface {
 
 	PostUserUserIdKeyWithResponse(ctx context.Context, userId string, body PostUserUserIdKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserUserIdKeyResponse, error)
 
-	// GetUserUserIdKeyValidateThumbprintWithResponse request
-	GetUserUserIdKeyValidateThumbprintWithResponse(ctx context.Context, userId string, thumbprint string, reqEditors ...RequestEditorFn) (*GetUserUserIdKeyValidateThumbprintResponse, error)
+	// GetUserUserIdKeyValidateFingerprintWithResponse request
+	GetUserUserIdKeyValidateFingerprintWithResponse(ctx context.Context, userId string, fingerprint string, reqEditors ...RequestEditorFn) (*GetUserUserIdKeyValidateFingerprintResponse, error)
 
 	// DeleteUserUserIdKeyKeyIdWithBodyWithResponse request with any body
 	DeleteUserUserIdKeyKeyIdWithBodyWithResponse(ctx context.Context, userId string, keyId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserUserIdKeyKeyIdResponse, error)
@@ -2069,7 +2069,7 @@ func (r PostUserMeKeyResponse) StatusCode() int {
 	return 0
 }
 
-type GetUserMeKeyValidateThumbprintResponse struct {
+type GetUserMeKeyValidateFingerprintResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *GeneralMessageWithKeyResponse
@@ -2081,7 +2081,7 @@ type GetUserMeKeyValidateThumbprintResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetUserMeKeyValidateThumbprintResponse) Status() string {
+func (r GetUserMeKeyValidateFingerprintResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -2089,7 +2089,7 @@ func (r GetUserMeKeyValidateThumbprintResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetUserMeKeyValidateThumbprintResponse) StatusCode() int {
+func (r GetUserMeKeyValidateFingerprintResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2171,7 +2171,7 @@ func (r PostUserUserIdKeyResponse) StatusCode() int {
 	return 0
 }
 
-type GetUserUserIdKeyValidateThumbprintResponse struct {
+type GetUserUserIdKeyValidateFingerprintResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *GeneralMessage
@@ -2181,7 +2181,7 @@ type GetUserUserIdKeyValidateThumbprintResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetUserUserIdKeyValidateThumbprintResponse) Status() string {
+func (r GetUserUserIdKeyValidateFingerprintResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -2189,7 +2189,7 @@ func (r GetUserUserIdKeyValidateThumbprintResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetUserUserIdKeyValidateThumbprintResponse) StatusCode() int {
+func (r GetUserUserIdKeyValidateFingerprintResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2458,13 +2458,13 @@ func (c *ClientWithResponses) PostUserMeKeyWithResponse(ctx context.Context, bod
 	return ParsePostUserMeKeyResponse(rsp)
 }
 
-// GetUserMeKeyValidateThumbprintWithResponse request returning *GetUserMeKeyValidateThumbprintResponse
-func (c *ClientWithResponses) GetUserMeKeyValidateThumbprintWithResponse(ctx context.Context, thumbprint string, reqEditors ...RequestEditorFn) (*GetUserMeKeyValidateThumbprintResponse, error) {
-	rsp, err := c.GetUserMeKeyValidateThumbprint(ctx, thumbprint, reqEditors...)
+// GetUserMeKeyValidateFingerprintWithResponse request returning *GetUserMeKeyValidateFingerprintResponse
+func (c *ClientWithResponses) GetUserMeKeyValidateFingerprintWithResponse(ctx context.Context, fingerprint string, reqEditors ...RequestEditorFn) (*GetUserMeKeyValidateFingerprintResponse, error) {
+	rsp, err := c.GetUserMeKeyValidateFingerprint(ctx, fingerprint, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetUserMeKeyValidateThumbprintResponse(rsp)
+	return ParseGetUserMeKeyValidateFingerprintResponse(rsp)
 }
 
 // GetUserUserIdWithResponse request returning *GetUserUserIdResponse
@@ -2502,13 +2502,13 @@ func (c *ClientWithResponses) PostUserUserIdKeyWithResponse(ctx context.Context,
 	return ParsePostUserUserIdKeyResponse(rsp)
 }
 
-// GetUserUserIdKeyValidateThumbprintWithResponse request returning *GetUserUserIdKeyValidateThumbprintResponse
-func (c *ClientWithResponses) GetUserUserIdKeyValidateThumbprintWithResponse(ctx context.Context, userId string, thumbprint string, reqEditors ...RequestEditorFn) (*GetUserUserIdKeyValidateThumbprintResponse, error) {
-	rsp, err := c.GetUserUserIdKeyValidateThumbprint(ctx, userId, thumbprint, reqEditors...)
+// GetUserUserIdKeyValidateFingerprintWithResponse request returning *GetUserUserIdKeyValidateFingerprintResponse
+func (c *ClientWithResponses) GetUserUserIdKeyValidateFingerprintWithResponse(ctx context.Context, userId string, fingerprint string, reqEditors ...RequestEditorFn) (*GetUserUserIdKeyValidateFingerprintResponse, error) {
+	rsp, err := c.GetUserUserIdKeyValidateFingerprint(ctx, userId, fingerprint, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetUserUserIdKeyValidateThumbprintResponse(rsp)
+	return ParseGetUserUserIdKeyValidateFingerprintResponse(rsp)
 }
 
 // DeleteUserUserIdKeyKeyIdWithBodyWithResponse request with arbitrary body returning *DeleteUserUserIdKeyKeyIdResponse
@@ -3558,15 +3558,15 @@ func ParsePostUserMeKeyResponse(rsp *http.Response) (*PostUserMeKeyResponse, err
 	return response, nil
 }
 
-// ParseGetUserMeKeyValidateThumbprintResponse parses an HTTP response from a GetUserMeKeyValidateThumbprintWithResponse call
-func ParseGetUserMeKeyValidateThumbprintResponse(rsp *http.Response) (*GetUserMeKeyValidateThumbprintResponse, error) {
+// ParseGetUserMeKeyValidateFingerprintResponse parses an HTTP response from a GetUserMeKeyValidateFingerprintWithResponse call
+func ParseGetUserMeKeyValidateFingerprintResponse(rsp *http.Response) (*GetUserMeKeyValidateFingerprintResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetUserMeKeyValidateThumbprintResponse{
+	response := &GetUserMeKeyValidateFingerprintResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -3757,15 +3757,15 @@ func ParsePostUserUserIdKeyResponse(rsp *http.Response) (*PostUserUserIdKeyRespo
 	return response, nil
 }
 
-// ParseGetUserUserIdKeyValidateThumbprintResponse parses an HTTP response from a GetUserUserIdKeyValidateThumbprintWithResponse call
-func ParseGetUserUserIdKeyValidateThumbprintResponse(rsp *http.Response) (*GetUserUserIdKeyValidateThumbprintResponse, error) {
+// ParseGetUserUserIdKeyValidateFingerprintResponse parses an HTTP response from a GetUserUserIdKeyValidateFingerprintWithResponse call
+func ParseGetUserUserIdKeyValidateFingerprintResponse(rsp *http.Response) (*GetUserUserIdKeyValidateFingerprintResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetUserUserIdKeyValidateThumbprintResponse{
+	response := &GetUserUserIdKeyValidateFingerprintResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -74,20 +74,20 @@ type GeneralMessageWithAnalyticsResponse struct {
 
 // Key defines model for Key.
 type Key struct {
-	CreatedAt  *time.Time          `json:"created_at,omitempty"`
-	Id         *openapi_types.UUID `json:"id,omitempty"`
-	KeyData    *string             `json:"key_data,omitempty"`
-	Reference  *string             `json:"reference,omitempty"`
-	Thumbprint *string             `json:"thumbprint,omitempty"`
+	CreatedAt   *time.Time          `json:"created_at,omitempty"`
+	Fingerprint *string             `json:"fingerprint,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+	KeyData     *string             `json:"key_data,omitempty"`
+	Reference   *string             `json:"reference,omitempty"`
 }
 
 // NewKey defines model for NewKey.
 type NewKey struct {
-	Force      *bool   `json:"force,omitempty"`
-	KeyData    *string `json:"key_data,omitempty"`
-	Only       *bool   `json:"only,omitempty"`
-	Reference  *string `json:"reference,omitempty"`
-	Thumbprint *string `json:"thumbprint,omitempty"`
+	Fingerprint *string `json:"fingerprint,omitempty"`
+	Force       *bool   `json:"force,omitempty"`
+	KeyData     *string `json:"key_data,omitempty"`
+	Only        *bool   `json:"only,omitempty"`
+	Reference   *string `json:"reference,omitempty"`
 }
 
 // OIDCProvider defines model for OIDCProvider.

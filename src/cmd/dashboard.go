@@ -32,7 +32,7 @@ var dashboardCmd = &cobra.Command{
 The dashboard provides a web-based interface for posting secrets,
 viewing analytics, and accessing additional features of PigeonHole.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		url := "http://localhost:3000"
+		url := "https://nestbox.pigeono.io"
 		fmt.Printf("Opening PigeonHole dashboard at %s...\n", url)
 
 		err := openURL(url)

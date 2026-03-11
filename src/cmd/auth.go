@@ -154,7 +154,11 @@ var authLoginCmd = &cobra.Command{
 			logrus.Debugln(err.Error())
 			return
 		}
-		logrus.Debugf("IdP Access Token: %s", idPTok.AccessToken)
+		tokenPreview := idPTok.AccessToken
+	if len(tokenPreview) > 8 {
+		tokenPreview = tokenPreview[:8]
+	}
+	logrus.Debugf("IdP Access Token obtained (first 8 chars): %s...", tokenPreview)
 		logrus.Debugf("IdP Token Type: %s", idPTok.TokenType)
 		logrus.Debugf("IdP Token Expiry: %s", idPTok.Expiry)
 
@@ -236,7 +240,7 @@ var authLoginCmd = &cobra.Command{
 				Force:      &force,
 				KeyData:    identity.GPGKey.PublicKey,
 				Reference:  &hostname,
-				Thumbprint: identity.GPGKey.Thumbprint,
+				Fingerprint: identity.GPGKey.Fingerprint,
 			}
 
 			// Send key to server
@@ -265,27 +269,27 @@ var authLoginCmd = &cobra.Command{
 		}
 
 		logrus.Debugf("Checking remote key exists for local key: %s\n\n", email)
-		keysResponse, err := PigeonHoleClient.GetUserMeKeyValidateThumbprintWithResponse(GlobalCtx, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+		keysResponse, err := PigeonHoleClient.GetUserMeKeyValidateFingerprintWithResponse(GlobalCtx, *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
 		if err != nil {
-			logrus.Debugf("Error validating thumbprint: %v", err)
+			logrus.Debugf("Error validating fingerprint: %v", err)
 			fmt.Printf("⚠️  Warning: Could not validate key on server: %v\n", err)
 			fmt.Println("The login may succeed but key validation failed.")
 		}
 
 		if keysResponse == nil {
-			logrus.Debugf("No response when validating thumbprint")
+			logrus.Debugf("No response when validating fingerprint")
 			fmt.Println("⚠️  Warning: No response from server when validating key")
 		} else {
 			switch keysResponse.StatusCode() {
 			case http.StatusOK:
-				if len(*keysResponse.JSON200.Keys) == 0 {
-					logrus.Debugf("keys not found for %s with thumbprint:", email, *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
-					logrus.Debugf("Pushing public key with fingerprint: %s ", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+				if keysResponse.JSON200 == nil || keysResponse.JSON200.Keys == nil || len(*keysResponse.JSON200.Keys) == 0 {
+					logrus.Debugf("keys not found for %s with fingerprint: %s", email, *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
+					logrus.Debugf("Pushing public key with fingerprint: %s ", *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
 					uploadKeyPayload := sdk.PostUserMeKeyJSONRequestBody{}
 					uploadKeyPayload.KeyData = PigeonHoleConfig.Identity[email].GPGKey.PublicKey
 					d, _ := os.Hostname()
 					uploadKeyPayload.Reference = &d
-					uploadKeyPayload.Thumbprint = PigeonHoleConfig.Identity[email].GPGKey.Thumbprint
+					uploadKeyPayload.Fingerprint = PigeonHoleConfig.Identity[email].GPGKey.Fingerprint
 					resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, uploadKeyPayload)
 					if err != nil {
 						logrus.Debugf("Error posting GPG key to server: %v", err)
@@ -297,7 +301,7 @@ var authLoginCmd = &cobra.Command{
 						return
 					}
 					if resp.StatusCode() == http.StatusCreated {
-						logrus.Debugf("Key uploaded successfully with thumbprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Thumbprint)
+						logrus.Debugf("Key uploaded successfully with fingerprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
 					} else {
 						logrus.Debugf("Response code: %d", resp.StatusCode())
 						switch resp.StatusCode() {
@@ -324,7 +328,7 @@ var authLoginCmd = &cobra.Command{
 					}
 					if keysResponse.JSON200 != nil && keysResponse.JSON200.Keys != nil {
 						for i, k := range *keysResponse.JSON200.Keys {
-							logrus.Debugf("%d: %s\n", i, *k.Thumbprint)
+							logrus.Debugf("%d: %s\n", i, *k.Fingerprint)
 						}
 					}
 				}
@@ -463,7 +467,12 @@ func clearKeychain(force bool) {
 		fmt.Println("You will need to log in again to continue using Pigeonhole.")
 		fmt.Print("\nDo you want to continue? (yes/no): ")
 
-		if !getConfirmation() {
+		confirmed, err := getConfirmation()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			return
+		}
+		if !confirmed {
 			fmt.Println("Clear keychain cancelled.")
 			return
 		}
@@ -502,7 +511,12 @@ func clearKeychain(force bool) {
 
 			// Also try to clear any other users that might be in the keychain
 			if email, err := PigeonHoleConfig.GetUserEmail(); err == nil && email != "" {
-				// Already handled in the loop above if present in Identity
+				// Clear active user's credentials even if not in Identity map
+				if credStore, err := credentialstore.NewStore(&fullConfigPath); err == nil {
+					if err := credStore.DeleteAllCredentials(email); err != nil {
+						logrus.Debugf("Error clearing credentials for active user: %v", err)
+					}
+				}
 			}
 		} else {
 			// For file backend, just use the current user email
@@ -690,6 +704,5 @@ func init() {
 
 	authLoginCmd.PersistentFlags().StringVar(&UseOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
 	authClearKeychainCmd.PersistentFlags().BoolP("force", "f", false, "Skip confirmation prompt")
-	rootCmd.AddCommand(authLoginCmd)
 
 }

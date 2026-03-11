@@ -34,6 +34,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		SetLogger()
 		GlobalCtx, ContextCancel = context.WithTimeout(context.Background(), 60*time.Second)
+		defer ContextCancel()
 		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig, Version)
 		if cmd.Annotations["skip-pre-run"] == "true" {
 			logrus.Debugln("skipping-pre-run for: ", cmd.CommandPath())

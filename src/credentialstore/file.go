@@ -107,17 +107,17 @@ func (fs *FileStore) GetGPGPublicKey(userEmail string) (string, error) {
 	return val, nil
 }
 
-// SaveGPGThumbprint saves the GPG key thumbprint to YAML file
-func (fs *FileStore) SaveGPGThumbprint(userEmail string, thumbprint string) error {
-	keyPath := fs.getCredentialsKey("gpg_thumbprint", userEmail)
-	logrus.Debugf("Saving GPG thumbprint for %s to file store", userEmail)
-	fs.viper.Set(keyPath, thumbprint)
+// SaveGPGFingerprint saves the GPG key fingerprint to YAML file
+func (fs *FileStore) SaveGPGFingerprint(userEmail string, fingerprint string) error {
+	keyPath := fs.getCredentialsKey("gpg_fingerprint", userEmail)
+	logrus.Debugf("Saving GPG fingerprint for %s to file store", userEmail)
+	fs.viper.Set(keyPath, fingerprint)
 	return fs.writeConfig()
 }
 
-// GetGPGThumbprint retrieves the GPG key thumbprint from YAML file
-func (fs *FileStore) GetGPGThumbprint(userEmail string) (string, error) {
-	keyPath := fs.getCredentialsKey("gpg_thumbprint", userEmail)
+// GetGPGFingerprint retrieves the GPG key fingerprint from YAML file
+func (fs *FileStore) GetGPGFingerprint(userEmail string) (string, error) {
+	keyPath := fs.getCredentialsKey("gpg_fingerprint", userEmail)
 	fs.readConfig()
 	val := fs.viper.GetString(keyPath)
 	if val == "" {
@@ -137,7 +137,7 @@ func (fs *FileStore) DeleteAllCredentials(userEmail string) error {
 	}
 
 	// Delete all credential keys for this user
-	credRoot := fmt.Sprintf("credentials.%s", userEmail)
+	credRoot := fmt.Sprintf("credentials.%s", credentialStoreEncodeEmail(userEmail))
 	fs.viper.Set(credRoot, nil)
 
 	return fs.writeConfig()
