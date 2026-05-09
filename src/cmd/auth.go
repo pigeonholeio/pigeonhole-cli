@@ -27,6 +27,7 @@ import (
 	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/pigeonholeio/pigeonhole-cli/credentialstore"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
+	"github.com/pigeonholeio/pigeonhole-cli/ui"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -116,7 +117,7 @@ var authLoginCmd = &cobra.Command{
 		}
 
 		if oidcProviders == nil || oidcProviders.JSON200 == nil {
-			fmt.Println("☠️ Invalid response from PigeonHole servers - no providers available")
+			ui.Error("Invalid response from PigeonHole servers - no providers available")
 			return
 		}
 
@@ -124,12 +125,10 @@ var authLoginCmd = &cobra.Command{
 
 		if UseOIDCProvider == "" { // assumes not set
 			if oidcProviders.JSON200.Default == nil {
-				fmt.Println("☠️ No default OIDC provider configured")
-				fmt.Printf("To view list of available Identity Providers use:\n	pigeonhole auth list\n\n")
+				ui.Error("No default OIDC provider configured")
+				ui.Info("To view available providers: pigeonhole auth list")
 				return
 			}
-			fmt.Printf("To view list of available Identity Providers use:\n	pigeonhole auth list\n\n")
-			fmt.Printf("Using default provider: %s\n", *oidcProviders.JSON200.Default)
 			UseOIDCProvider = *oidcProviders.JSON200.Default
 			foundProvider = (*oidcProviders.JSON200.OidcProviders)[UseOIDCProvider]
 		} else {
@@ -139,8 +138,8 @@ var authLoginCmd = &cobra.Command{
 					foundProvider = provider
 					logrus.Debugf("OIDC Provider found: [%s]{%s} %s", *provider.Name, *provider.ClientID, *provider.AuthUrl)
 				} else {
-					fmt.Println("Provider not found:", UseOIDCProvider)
-					fmt.Printf("\nRun the following command to list available providers\n	pigeonhole auth list\n\n")
+					ui.Error("Provider not found: " + UseOIDCProvider)
+					ui.Info("Run: pigeonhole auth list")
 					return
 				}
 			}
@@ -148,11 +147,25 @@ var authLoginCmd = &cobra.Command{
 
 		logrus.Debugf("Using the provider: %s\n", UseOIDCProvider)
 
-		idPTok, err := auth.AuthenticateWithDeviceCode(GlobalCtx, *foundProvider.ClientID, &foundProvider)
+		ui.Header("🔑", "Authenticating via OIDC ("+UseOIDCProvider+")...")
+
+		var doneWaiting func(error)
+		idPTok, err := auth.AuthenticateWithDeviceCode(GlobalCtx, *foundProvider.ClientID, &foundProvider,
+			func(verificationURI, userCode string) {
+				ui.Info("Open " + verificationURI + " and enter code: " + userCode)
+				fmt.Println()
+				doneWaiting = ui.Step("Waiting for confirmation")
+			},
+		)
 		if err != nil {
-			fmt.Printf("☠️  Could not authenticate with the identity provider: %s\n", *foundProvider.Name)
+			if doneWaiting != nil {
+				doneWaiting(err)
+			}
 			logrus.Debugln(err.Error())
 			return
+		}
+		if doneWaiting != nil {
+			doneWaiting(nil)
 		}
 		tokenPreview := idPTok.AccessToken
 	if len(tokenPreview) > 8 {
@@ -216,7 +229,7 @@ var authLoginCmd = &cobra.Command{
 		needKey := identity == nil || identity.GPGKey == nil || !identity.GPGKey.KeyExists()
 
 		if needKey {
-			fmt.Printf("No GPG key pair found locally, generating keys for: %s (%s)\n", name, email)
+			doneKey := ui.Step("Generating GPG key pair for " + email)
 
 			// Ensure identity and GPGKey are initialized
 			if identity == nil {
@@ -229,9 +242,10 @@ var authLoginCmd = &cobra.Command{
 
 			// Ensure keypair exists
 			if err := identity.GPGKey.EnsureKeyPair(&name, &email); err != nil {
-				fmt.Println("failed to ensure keypair:", err)
+				doneKey(err)
 				return
 			}
+			doneKey(nil)
 
 			// Prepare request
 			force := false
@@ -244,109 +258,85 @@ var authLoginCmd = &cobra.Command{
 			}
 
 			// Send key to server
+			doneUpload := ui.Step("Uploading public key")
 			resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, keyPost)
 			if err != nil {
+				doneUpload(err)
 				logrus.Debugf("Error posting GPG key to server: %v", err)
-				fmt.Printf("❌ Failed to upload GPG key to server\n")
-				fmt.Printf("Error: %v\n\n", err)
-				fmt.Println("This usually means:")
-				fmt.Println("  - The server is temporarily unavailable")
-				fmt.Println("  - Your network connection was interrupted")
-				fmt.Println("  - The server URL is incorrect or unreachable")
-				fmt.Printf("\nPlease check your connection and try again with:\n")
-				fmt.Printf("  pigeonhole login\n")
+				ui.Info("Check your connection and try again: pigeonhole login")
 				return
 			}
 
 			if resp.StatusCode() == http.StatusCreated {
+				doneUpload(nil)
 				logrus.Debugf("New keys saved")
 			} else {
 				logrus.Debugf("Response code: %d", resp.StatusCode())
-				fmt.Printf("⚠️  Warning: Unexpected response when uploading keys (status: %d)\n", resp.StatusCode())
+				doneUpload(fmt.Errorf("unexpected status %d", resp.StatusCode()))
 			}
 		} else {
 			logrus.Debugf("local key already exists for: %s", email)
 		}
 
 		logrus.Debugf("Checking remote key exists for local key: %s\n\n", email)
+		doneSync := ui.Step("Syncing GPG key")
 		keysResponse, err := PigeonHoleClient.GetUserMeKeyValidateFingerprintWithResponse(GlobalCtx, *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
 		if err != nil {
 			logrus.Debugf("Error validating fingerprint: %v", err)
-			fmt.Printf("⚠️  Warning: Could not validate key on server: %v\n", err)
-			fmt.Println("The login may succeed but key validation failed.")
-		}
-
-		if keysResponse == nil {
+			doneSync(err)
+		} else if keysResponse == nil {
 			logrus.Debugf("No response when validating fingerprint")
-			fmt.Println("⚠️  Warning: No response from server when validating key")
+			doneSync(fmt.Errorf("no response from server"))
 		} else {
+			needsUpload := false
 			switch keysResponse.StatusCode() {
 			case http.StatusOK:
 				if keysResponse.JSON200 == nil || keysResponse.JSON200.Keys == nil || len(*keysResponse.JSON200.Keys) == 0 {
 					logrus.Debugf("keys not found for %s with fingerprint: %s", email, *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
-					logrus.Debugf("Pushing public key with fingerprint: %s ", *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
-					uploadKeyPayload := sdk.PostUserMeKeyJSONRequestBody{}
-					uploadKeyPayload.KeyData = PigeonHoleConfig.Identity[email].GPGKey.PublicKey
-					d, _ := os.Hostname()
-					uploadKeyPayload.Reference = &d
-					uploadKeyPayload.Fingerprint = PigeonHoleConfig.Identity[email].GPGKey.Fingerprint
-					resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, uploadKeyPayload)
-					if err != nil {
-						logrus.Debugf("Error posting GPG key to server: %v", err)
-						fmt.Printf("❌ Failed to upload key to server\n")
-						fmt.Printf("Error: %v\n\n", err)
-						fmt.Printf("Could not upload key for user %s\n", email)
-						fmt.Println("Your login was successful, but the key could not be uploaded.")
-						fmt.Println("Try again later or contact support if the problem persists.")
-						return
-					}
-					if resp.StatusCode() == http.StatusCreated {
-						logrus.Debugf("Key uploaded successfully with fingerprint: %s\n", *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
-					} else {
-						logrus.Debugf("Response code: %d", resp.StatusCode())
-						switch resp.StatusCode() {
-						case http.StatusBadRequest:
-							if resp.JSON400 != nil && resp.JSON400.Message != nil {
-								logrus.Debugln(*resp.JSON400.Message)
-								fmt.Printf("❌ Server validation error: %s\n", *resp.JSON400.Message)
-							}
-						case http.StatusInternalServerError:
-							if resp.JSON500 != nil && resp.JSON500.Message != nil {
-								logrus.Debugln(*resp.JSON500.Message)
-								fmt.Printf("❌ Server error: %s\n", *resp.JSON500.Message)
-							} else {
-								fmt.Println("❌ Server error when uploading key (500)")
-							}
-						default:
-							fmt.Printf("❌ Unexpected response from server (status: %d)\n", resp.StatusCode())
-						}
-						return
-					}
+					needsUpload = true
 				} else {
-					if keysResponse.JSON200 != nil && keysResponse.JSON200.Message != nil {
-						logrus.Debugf("response from keys validation: %s\n", *keysResponse.JSON200.Message)
-					}
 					if keysResponse.JSON200 != nil && keysResponse.JSON200.Keys != nil {
 						for i, k := range *keysResponse.JSON200.Keys {
 							logrus.Debugf("%d: %s\n", i, *k.Fingerprint)
 						}
 					}
 				}
-
+			case http.StatusNotFound:
+				logrus.Debugf("Key not found for fingerprint: %s", *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
+				needsUpload = true
 			case http.StatusInternalServerError:
-				fmt.Println("❌ Server error when validating key")
 				if keysResponse.JSON500 != nil && keysResponse.JSON500.Message != nil {
 					logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON500.Message)
-					fmt.Printf("Error details: %s\n", *keysResponse.JSON500.Message)
 				}
-				return
+				needsUpload = true
 			case http.StatusBadRequest:
-				fmt.Println("❌ Invalid request when validating key")
 				if keysResponse.JSON400 != nil && keysResponse.JSON400.Message != nil {
 					logrus.Debugf("Error returned checking key validation: %s", *keysResponse.JSON400.Message)
-					fmt.Printf("Error details: %s\n", *keysResponse.JSON400.Message)
 				}
-				return
+				doneSync(fmt.Errorf("invalid request (status 400)"))
+			}
+
+			if needsUpload {
+				uploadKeyPayload := sdk.PostUserMeKeyJSONRequestBody{}
+				uploadKeyPayload.KeyData = PigeonHoleConfig.Identity[email].GPGKey.PublicKey
+				d, _ := os.Hostname()
+				uploadKeyPayload.Reference = &d
+				uploadKeyPayload.Fingerprint = PigeonHoleConfig.Identity[email].GPGKey.Fingerprint
+
+				resp, err := PigeonHoleClient.PostUserMeKeyWithResponse(GlobalCtx, uploadKeyPayload)
+				if err != nil {
+					logrus.Debugf("Error posting GPG key to server: %v", err)
+					doneSync(err)
+					ui.Info("Sync manually later: pigeonhole key upload")
+				} else if resp.StatusCode() == http.StatusCreated {
+					logrus.Debugf("Key uploaded successfully with fingerprint: %s", *PigeonHoleConfig.Identity[email].GPGKey.Fingerprint)
+					doneSync(nil)
+				} else {
+					doneSync(fmt.Errorf("status %d", resp.StatusCode()))
+					ui.Info("Sync manually later: pigeonhole key upload")
+				}
+			} else {
+				doneSync(nil)
 			}
 		}
 
@@ -363,7 +353,7 @@ var authLoginCmd = &cobra.Command{
 
 			if err := PigeonHoleConfig.SaveTokensToStore(store, email); err != nil {
 				logrus.Debugf("failed to save tokens to credential store: %v", err)
-				fmt.Println("Warning: Could not save tokens to credential store")
+				ui.Warn("Could not save tokens to credential store")
 				credentialStoreAvailable = false // Fall back to config file
 			} else {
 				logrus.Debugf("Successfully saved tokens to credential store")
@@ -372,7 +362,7 @@ var authLoginCmd = &cobra.Command{
 			if credentialStoreAvailable {
 				if err := PigeonHoleConfig.SaveGPGKeysToStore(store, email, identity); err != nil {
 					logrus.Debugf("failed to save GPG keys to credential store: %v", err)
-					fmt.Println("Warning: Could not save GPG keys to credential store")
+					ui.Warn("Could not save GPG keys to credential store")
 				} else {
 					logrus.Debugf("Successfully saved GPG keys to credential store")
 				}
@@ -428,18 +418,19 @@ var authLoginCmd = &cobra.Command{
 		} else {
 			// Credential store not available - credentials will be saved to config file (FALLBACK)
 			logrus.Debugf("Credential store not available, credentials will be saved to config file: %v", err)
-			fmt.Println("Warning: Could not use credential store, tokens will be saved to config file")
+			ui.Warn("Credential store unavailable — tokens saved to config file")
 		}
 
 		err = PigeonHoleConfig.Save(v, &fullConfigPath)
 		if err != nil {
 			logrus.Debugf("config file not saved: %s", err.Error())
-			fmt.Println("Failed to write config file!")
+			ui.Error("Failed to write config file")
 			return
 		}
 
-		fmt.Printf("\n🔐 Logged in as: %s\n\n", email)
-		fmt.Printf("Now try sending a secret;\n\n	pigeonhole secret send -r recipient@domain.com -f ./myfile\n")
+		ui.Success("Identity linked: " + email)
+		fmt.Println()
+		ui.Info("Try: pigeonhole secret send -r recipient@domain.com -f ./myfile")
 	},
 }
 
@@ -694,6 +685,16 @@ This shows all users you have previously logged in as.`,
 
 var UseOIDCProvider string
 
+var loginCmd = &cobra.Command{
+	Use:   "login",
+	Short: "Log into Pigeonhole using your Identity Provider",
+	Long:  `Log into your Identity Provider`,
+	Annotations: map[string]string{
+		"skip-pre-run": "true",
+	},
+	Run: authLoginCmd.Run,
+}
+
 func init() {
 	authCmd.AddCommand(authListCmd)
 	authCmd.AddCommand(authLoginCmd)
@@ -701,8 +702,9 @@ func init() {
 	authCmd.AddCommand(authSwitchCmd)
 	authCmd.AddCommand(authListUsersCmd)
 	rootCmd.AddCommand(authCmd)
+	rootCmd.AddCommand(loginCmd)
 
 	authLoginCmd.PersistentFlags().StringVar(&UseOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
+	loginCmd.PersistentFlags().StringVar(&UseOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
 	authClearKeychainCmd.PersistentFlags().BoolP("force", "f", false, "Skip confirmation prompt")
-
 }

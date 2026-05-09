@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/davecgh/go-spew/spew"
 	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
+	"github.com/pigeonholeio/pigeonhole-cli/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -180,63 +180,50 @@ var SecretsRetrieveCmd = &cobra.Command{
 	Long:    `Retrieve and decrypt secrets`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		fmt.Printf("Fetching secret envelope...")
+		ui.Header("📨", "Retrieving secret")
+
+		doneFetch := ui.Step("Fetching envelope")
 		downloadResp, err := PigeonHoleClient.GetSecretSecretIdDownloadWithResponse(GlobalCtx, secretQueryReference)
 		if err != nil {
-			fmt.Printf("Failed to fetch secret: %v\n", err)
+			doneFetch(err)
 			return
 		}
 
-		// Check for 307 redirect with valid response
 		if downloadResp.StatusCode() != http.StatusOK || downloadResp.JSON200 == nil {
-			// Handle error cases for non-307 responses
 			switch downloadResp.StatusCode() {
 			case http.StatusNotFound:
 				if downloadResp.JSON404 != nil && downloadResp.JSON404.Message != nil {
 					logrus.Debugf("Message from PigeonHole: %s", *downloadResp.JSON404.Message)
 				}
-				fmt.Println("No secret found")
+				doneFetch(fmt.Errorf("secret not found"))
 			case http.StatusBadRequest:
 				if downloadResp.JSON400 != nil && downloadResp.JSON400.Message != nil {
 					logrus.Debugf("Message from PigeonHole: %s", *downloadResp.JSON400.Message)
-				} else {
-					fmt.Println("Bad request")
 				}
+				doneFetch(fmt.Errorf("bad request"))
 			default:
-				fmt.Println("Failed to fetch secret")
+				doneFetch(fmt.Errorf("status %d", downloadResp.StatusCode()))
 			}
 			return
 		}
+		doneFetch(nil)
 
 		if downloadSecretPath == "" {
 			downloadSecretPath = fmt.Sprintf("%s/%s", "decrypted", *downloadResp.JSON200.SecretReference)
 		}
 		downloadSecretPath, _ = filepath.Abs(downloadSecretPath)
 
-		err = os.MkdirAll(downloadSecretPath, 0744)
-
-		if err != nil {
-			logrus.Debugf(err.Error())
-			fmt.Printf("Can't create path: %s\n", downloadSecretPath)
+		if err = os.MkdirAll(downloadSecretPath, 0744); err != nil {
+			logrus.Debugf("%v", err)
+			ui.Error("Can't create output path: " + downloadSecretPath)
 			return
 		}
-		// var filename string
 		logrus.Debugf("secret download url found: %s", *downloadResp.JSON200.DownloadUrl)
-
-		fmt.Printf("done!\nRetrieving and decrypting secret %s...", *downloadResp.JSON200.SecretReference)
-		tmpFileName, _ := utils.DownloadFile(downloadResp.JSON200.DownloadUrl)
-		inputBytes, err := os.ReadFile(tmpFileName)
-		if err != nil {
-			fmt.Printf("\nFailed!")
-			return
-		}
-		var decryptedFilePath string
 
 		// Check if we have the right key to decrypt this secret
 		var applicableKeys []string
 		if downloadResp.JSON200.RecipientKeyFingerprint != nil && *downloadResp.JSON200.RecipientKeyFingerprint != "" {
-			fmt.Printf("\n⏳ Checking if you have the key needed to decrypt this secret...")
-			// Check which keys can decrypt this secret
+			doneKey := ui.Step("Checking decryption key")
 			for email, identity := range PigeonHoleConfig.Identity {
 				if identity.GPGKey != nil && identity.GPGKey.Fingerprint != nil {
 					if *identity.GPGKey.Fingerprint == *downloadResp.JSON200.RecipientKeyFingerprint {
@@ -246,42 +233,42 @@ var SecretsRetrieveCmd = &cobra.Command{
 			}
 
 			if len(applicableKeys) == 0 {
-				fmt.Println(" Failed!\n")
-				fmt.Println("❌ You don't have the key needed to decrypt this secret.")
-				fmt.Println()
-				fmt.Println("The secret was encrypted with fingerprint:")
-				fmt.Printf("  %s\n", *downloadResp.JSON200.RecipientKeyFingerprint)
-				fmt.Println()
-				fmt.Println("Your available keys:")
+				doneKey(fmt.Errorf("no matching key found"))
+				ui.Info("Secret encrypted with fingerprint: " + *downloadResp.JSON200.RecipientKeyFingerprint)
+				ui.Info("Your keys:")
 				if len(PigeonHoleConfig.Identity) == 0 {
-					fmt.Println("  • No keys found in your configuration")
+					ui.Info("  • No keys found — run: pigeonhole keys init")
 				} else {
 					for email, identity := range PigeonHoleConfig.Identity {
 						if identity.GPGKey != nil && identity.GPGKey.Fingerprint != nil {
-							fmt.Printf("  • %s (fingerprint: %s)\n", email, *identity.GPGKey.Fingerprint)
+							ui.Info(fmt.Sprintf("  • %s (%s)", email, *identity.GPGKey.Fingerprint))
 						} else {
-							fmt.Printf("  • %s\n", email)
+							ui.Info("  • " + email)
 						}
 					}
 				}
-				fmt.Println()
-				fmt.Println("To resolve this:")
-				fmt.Println("  1. Verify the secret was encrypted for your email address")
-				fmt.Println("  2. Check if you have the correct GPG keys from the device where the secret was sent")
-				fmt.Println("  3. You may need to ask the sender to re-encrypt the secret with your current public key")
 				return
 			}
-			fmt.Println(" Yes!")
+			doneKey(nil)
 		}
 
-		// decrypt the bytes to the desired path
+		doneDownload := ui.Step("Downloading")
+		tmpFileName, _ := utils.DownloadFile(downloadResp.JSON200.DownloadUrl)
+		inputBytes, err := os.ReadFile(tmpFileName)
+		if err != nil {
+			doneDownload(err)
+			return
+		}
+		doneDownload(nil)
+
+		doneDecrypt := ui.Step("Decrypting")
+		var decryptedFilePath string
 		decrypted := false
 		var decryptionErrors []string
 
 		for _, i := range PigeonHoleConfig.Identity {
 			decodedKey, _ := i.GPGKey.DecodedPrivateKey()
 			decryptedFilePath, err = utils.DecryptBytes(inputBytes, &downloadSecretPath, &decodedKey)
-
 			if err != nil {
 				logrus.Debugf("Failed to decrypt with key: %s", err.Error())
 				decryptionErrors = append(decryptionErrors, err.Error())
@@ -292,19 +279,12 @@ var SecretsRetrieveCmd = &cobra.Command{
 		}
 
 		if !decrypted {
-			fmt.Println("Failed to decrypt secret!")
-			fmt.Println()
-
-			// Check if we have any keys at all
 			if len(PigeonHoleConfig.Identity) == 0 {
-				fmt.Println("❌ No GPG keys found in your configuration.")
-				fmt.Println()
-				fmt.Println("To use PigeonHole, you need to initialize your GPG keys:")
-				fmt.Println("  pigeonhole keys init")
+				doneDecrypt(fmt.Errorf("no GPG keys in configuration"))
+				ui.Info("Initialize keys: pigeonhole keys init")
 				return
 			}
 
-			// Check if all decryption attempts failed due to incorrect key errors
 			hasIncorrectKeyError := false
 			for _, errMsg := range decryptionErrors {
 				if strings.Contains(strings.ToLower(errMsg), "incorrect key") ||
@@ -316,40 +296,12 @@ var SecretsRetrieveCmd = &cobra.Command{
 			}
 
 			if hasIncorrectKeyError {
-				fmt.Println("⚠️  The secret was encrypted with a different GPG key pair.")
-				fmt.Println()
-				fmt.Println("This can happen if:")
-				fmt.Println("  • The secret was encrypted on a different device")
-				fmt.Println("  • Your GPG keys were regenerated after the secret was sent")
-				fmt.Println("  • Someone encrypted the secret for a different recipient")
-				fmt.Println()
-				fmt.Println("Current GPG keys available for decryption:")
-				for email, identity := range PigeonHoleConfig.Identity {
-					if identity.GPGKey != nil && identity.GPGKey.Fingerprint != nil {
-						fmt.Printf("  • %s (fingerprint: %s)\n", email, *identity.GPGKey.Fingerprint)
-					} else {
-						fmt.Printf("  • %s\n", email)
-					}
-				}
-				fmt.Println()
-				fmt.Println("To resolve this:")
-				fmt.Println("  1. Verify the secret was encrypted for your email address")
-				fmt.Println("  2. Check if you have the correct GPG keys from the device where the secret was sent")
-				fmt.Println("  3. You may need to ask the sender to re-encrypt the secret with your current public key")
+				doneDecrypt(fmt.Errorf("wrong key — secret encrypted with a different GPG key pair"))
+				ui.Info("The secret may have been sent to a different device or key.")
+				ui.Info("Ask the sender to re-encrypt with your current public key.")
 			} else {
-				fmt.Println("❌ Unable to decrypt the secret with any available GPG keys.")
-				fmt.Println()
-				if len(decryptionErrors) > 0 {
-					fmt.Println("Decryption errors:")
-					for i, errMsg := range decryptionErrors {
-						fmt.Printf("  %d. %s\n", i+1, errMsg)
-					}
-					fmt.Println()
-				}
-				fmt.Println("Try:")
-				fmt.Println("  • Verify the secret reference is correct")
-				fmt.Println("  • Run `pigeonhole keys list` to see your available keys")
-				fmt.Println("  • Run `pigeonhole keys init` to regenerate your keys")
+				doneDecrypt(fmt.Errorf("decryption failed with all available keys"))
+				ui.Info("Run: pigeonhole keys list")
 			}
 			return
 		}
@@ -357,7 +309,8 @@ var SecretsRetrieveCmd = &cobra.Command{
 
 		utils.DecompressFile(decryptedFilePath, downloadSecretPath)
 		utils.ShredFile(decryptedFilePath, 3)
-		fmt.Printf("done!\n📨 Decrypted %s to %s\n", *downloadResp.JSON200.SecretReference, downloadSecretPath)
+		doneDecrypt(nil)
+		ui.Success(fmt.Sprintf("Saved to %s", downloadSecretPath))
 	},
 }
 
@@ -377,7 +330,7 @@ var SecretsCountCmd = &cobra.Command{
 		// f, _ := PigeonHoleClient.GetSecret()
 		f, err := PigeonHoleClient.GetSecretWithResponse(GlobalCtx, &s)
 		if err != nil {
-			logrus.Debugf(err.Error())
+			logrus.Debugf("%v", err)
 			fmt.Println("Something went wrong with the PigeonHole API")
 			return
 		}
@@ -444,7 +397,7 @@ By default only received secrets are listed, use --all to list sent and active s
 		// f, _ := PigeonHoleClient.GetSecret()
 		f, err := PigeonHoleClient.GetSecretWithResponse(GlobalCtx, &s)
 		if err != nil {
-			logrus.Debugf(err.Error())
+			logrus.Debugf("%v", err)
 			fmt.Println("Something went wrong with the PigeonHole API")
 			return
 		}
@@ -543,21 +496,22 @@ var SecretsDropCmd = &cobra.Command{
 				return
 			}
 		}
+		ui.Header("📨", "Sending secret")
+
 		reference := utils.GenerateCodeWord(2)
 		timeSecretExpiry, err := utils.ParseExpiration(secretExpiry)
 		if err != nil {
 			logrus.Debugf("Invlid Expiration: %s", err.Error())
-			fmt.Println("Invalid expiration")
+			ui.Warn("Invalid expiration")
 		}
 
-		// Compress data BEFORE requesting envelope to calculate payload size
-		fmt.Printf("Preparing secret...")
+		doneCompress := ui.Step("Compressing")
 		var compressedData []byte
 		if isStdin {
 			logrus.Debug("Reading from stdin")
 			stdinData, err := io.ReadAll(os.Stdin)
 			if err != nil {
-				fmt.Println("Error reading from stdin")
+				doneCompress(fmt.Errorf("error reading from stdin"))
 				logrus.Debugf("Error reading from stdin: %s", err.Error())
 				return
 			}
@@ -565,7 +519,7 @@ var SecretsDropCmd = &cobra.Command{
 			logrus.Debug("Compressing stdin data into tar.gz")
 			compressedData, err = compressStdinData(stdinData)
 			if err != nil {
-				fmt.Println("Error compressing stdin data")
+				doneCompress(err)
 				logrus.Debugf("Error compressing stdin data: %s", err.Error())
 				return
 			}
@@ -573,12 +527,12 @@ var SecretsDropCmd = &cobra.Command{
 			logrus.Debug("Compressing file/directory into tar.gz")
 			compressedData, err = compressToBytes(filename)
 			if err != nil {
-				fmt.Println("Error compressing data")
+				doneCompress(err)
 				logrus.Debugf("Error compressing data: %s", err.Error())
 				return
 			}
 		}
-		fmt.Println("done!")
+		doneCompress(nil)
 
 		// Calculate payload size after compression
 		payloadSize := int64(len(compressedData))
@@ -593,134 +547,129 @@ var SecretsDropCmd = &cobra.Command{
 			TotalPayloadSize: payloadSize,
 		}
 
-		fmt.Printf("Requesting a Secret Envelope from PigeonHole...")
-
+		doneEnvelope := ui.Step("Requesting envelope")
 		secretEnvelopeResponse, err := PigeonHoleClient.PostSecretWithResponse(GlobalCtx, newSecretRequest)
-
-		// spew.Dump(s)
 		if err != nil {
+			doneEnvelope(err)
 			logrus.Debugln(err.Error())
-			fmt.Printf("failed!\n\nAdd --verbose for debug info\n")
 			return
-		} else {
-			fmt.Println("done!")
 		}
 
-		if secretEnvelopeResponse.JSON201 != nil && secretEnvelopeResponse.StatusCode() == http.StatusCreated {
-			logrus.Debugln("Secret envelope received, let's post this secret")
+		switch {
+		case secretEnvelopeResponse.JSON201 != nil && secretEnvelopeResponse.StatusCode() == http.StatusCreated:
+			doneEnvelope(nil)
+			logrus.Debugln("Secret envelope received, posting secret")
 
-			fmt.Printf("Encrypting secret...")
-
+			doneEncrypt := ui.Step("Encrypting")
 			logrus.Debugf("Retrieving public keys")
 			user_pubs, err := sdk.GetUserGPGArmoredPubKeysFromIdSlice(&GlobalCtx, secretEnvelopeResponse.JSON201)
-
 			if err != nil {
-				fmt.Println(err.Error())
+				doneEncrypt(err)
 				return
 			}
 			if len(user_pubs) == 0 {
-				fmt.Printf("❌ - No public keys found for users.\n\nYou can use --use-ephemeral-keys (-e) to use an Ephemeral Key.\n\n")
-				fmt.Printf("	pigeonhole secret post -r <email> -f ./myfile -e\n\n")
-				fmt.Println("Visit https://pigeono.io/ephemeral-keys to find out more")
+				doneEncrypt(fmt.Errorf("no public keys found for recipients"))
+				ui.Info("Use -e to send with ephemeral keys: pigeonhole secret send -r <email> -f ./myfile -e")
 				return
 			}
 			logrus.Debugf("Found %d keys", len(user_pubs))
-			for i := range user_pubs {
-				logrus.Debugf("found public key: %s\n", user_pubs[i])
-			}
 
-			// Create temp file for encrypted data
 			encryptedFile, err := os.CreateTemp(os.TempDir(), "pigeonhole-encrypted-")
 			if err != nil {
-				fmt.Println("Error creating temp file for encrypted data")
+				doneEncrypt(err)
 				logrus.Debugf("Error creating temp file: %s", err.Error())
 				return
 			}
 			defer encryptedFile.Close()
 
-			// Encrypt compressed data and write directly to file
 			logrus.Debug("Encrypting compressed data")
 			err = utils.EncryptStream(bytes.NewReader(compressedData), encryptedFile, user_pubs)
 			if err != nil {
-				fmt.Println("Encryption failed")
+				doneEncrypt(err)
 				logrus.Debugf("Encryption failed: %s", err.Error())
 				return
 			}
-
 			encryptedFilePath := encryptedFile.Name()
 			logrus.Debugf("Encrypted file created at: %s", encryptedFilePath)
+			doneEncrypt(nil)
 
-			fmt.Println("done!")
-
-			fmt.Printf("Posting secret...")
+			doneUpload := ui.Step("Uploading")
 			errx := sdk.UploadFile(*secretEnvelopeResponse.JSON201, encryptedFilePath)
-			if errx != nil {
-				logrus.Debugln(errx.Error())
-				fmt.Println("Failed to upload secret!")
-			} else {
-				fmt.Printf("done!\nSecret encrypted, posted and is en route as %s! 🚀\n\nA lot of time and effort goes into supporting PigeonHole.\nIf you like and find the service helpful, find out how you can support it at https://pigeono.io/about/contribute/\n", *secretEnvelopeResponse.JSON201.S3Info.Fields.XAmzMetaReference)
-			}
 			logrus.Debugf("Shredding encrypted temp file: %s", encryptedFilePath)
 			utils.ShredFile(encryptedFilePath, 3)
-		} else if secretEnvelopeResponse.StatusCode() == http.StatusNotAcceptable {
-			// logrus.Debugf("Message from PigeonHole API: %s", *s.JSON204.Message)
+			if errx != nil {
+				doneUpload(errx)
+				logrus.Debugln(errx.Error())
+			} else {
+				doneUpload(nil)
+				fmt.Println()
+				ui.Success(fmt.Sprintf("Secret sent — ref: %s", *secretEnvelopeResponse.JSON201.S3Info.Fields.XAmzMetaReference))
+			}
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusNotAcceptable:
+			doneEnvelope(fmt.Errorf("recipients missing public keys"))
 			if secretEnvelopeResponse.JSON406 != nil && secretEnvelopeResponse.JSON406.Message != nil {
-			logrus.Debugf("PigeonHole API message: %s", *secretEnvelopeResponse.JSON406.Message)
-		}
-			fmt.Printf("Some recipients are missing or haven't published a public key yet.\n\n")
-			fmt.Printf("Add --use-ephemeral-keys (-e) to use ephemeral GPG keys\n\n	pigeonhole secret send -r <email> -f ./myfile -e\n\n")
-			fmt.Printf("To find out more about ephemeral keys visit the website https://pigeono.io/keys/ephemeral-keys\n")
-		} else if secretEnvelopeResponse.StatusCode() == http.StatusTooManyRequests {
-			// Quota exceeded - too many secrets
+				logrus.Debugf("PigeonHole API message: %s", *secretEnvelopeResponse.JSON406.Message)
+			}
+			ui.Info("Use -e for ephemeral keys: pigeonhole secret send -r <email> -f ./myfile -e")
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusTooManyRequests:
 			if secretEnvelopeResponse.JSON429 != nil {
-				// fmt.Printf("- reach out to increase the quota\n")
-				fmt.Printf("❌ Monthly active secret quota exceeded: %s\n", secretEnvelopeResponse.JSON429.Message)
-				fmt.Println("You may;\n - Delete active unused secrets: pigeonhole secret delete -r <reference>\n - Request a quota increase: email quota@pigeono.io")
-				// fmt.Printf("\nQuota Type: %s\n", secretEnvelopeResponse.JSON429.QuotaType)
-				// fmt.Printf("Current Usage: %d\n", secretEnvelopeResponse.JSON429.CurrentUsage)
-				// fmt.Printf("Limit: %d\n", secretEnvelopeResponse.JSON429.Limit)
+				doneEnvelope(fmt.Errorf("monthly active secret quota exceeded: %s", secretEnvelopeResponse.JSON429.Message))
+				ui.Info("Delete unused secrets: pigeonhole secret delete -r <reference>")
+				ui.Info("Request a quota increase: quota@pigeono.io")
 			}
-		} else if secretEnvelopeResponse.StatusCode() == http.StatusRequestEntityTooLarge {
-			// Quota exceeded - file too large or total bytes exceeded
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusRequestEntityTooLarge:
 			if secretEnvelopeResponse.JSON413 != nil {
+				msg := "monthly sent bytes quota exceeded"
 				if secretEnvelopeResponse.JSON413.Message != "" {
-					fmt.Printf("❌ Monthly sent bytes quota exceeded: %s\n", secretEnvelopeResponse.JSON413.Message)
+					msg = secretEnvelopeResponse.JSON413.Message
 				}
+				doneEnvelope(fmt.Errorf("%s", msg))
 				if secretEnvelopeResponse.JSON413.Requested != nil {
-					fmt.Printf("Requested: %s\n", formatBytes(*secretEnvelopeResponse.JSON413.Requested))
+					ui.Info("Requested: " + formatBytes(*secretEnvelopeResponse.JSON413.Requested))
 				}
 			}
-		} else if secretEnvelopeResponse.StatusCode() == 400 {
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusBadRequest:
+			msg := "bad request"
 			if secretEnvelopeResponse.JSON400 != nil && secretEnvelopeResponse.JSON400.Message != nil {
-				fmt.Printf("failed: %s\n", *secretEnvelopeResponse.JSON400.Message)
-			} else {
-				fmt.Println("failed: bad request")
+				msg = *secretEnvelopeResponse.JSON400.Message
 			}
-		} else if secretEnvelopeResponse.StatusCode() == 401 {
+			doneEnvelope(fmt.Errorf("%s", msg))
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusUnauthorized:
+			msg := "unauthorized"
 			if secretEnvelopeResponse.JSON401 != nil && secretEnvelopeResponse.JSON401.Message != nil {
-				fmt.Printf("failed: %s\n", *secretEnvelopeResponse.JSON401.Message)
-			} else {
-				fmt.Println("failed: unauthorized")
+				msg = *secretEnvelopeResponse.JSON401.Message
 			}
-		} else if secretEnvelopeResponse.StatusCode() == 403 {
+			doneEnvelope(fmt.Errorf("%s", msg))
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusForbidden:
+			msg := "forbidden"
 			if secretEnvelopeResponse.JSON403 != nil && secretEnvelopeResponse.JSON403.Message != nil {
-				fmt.Printf("failed: %s\n", *secretEnvelopeResponse.JSON403.Message)
-			} else {
-				fmt.Println("failed: forbidden")
+				msg = *secretEnvelopeResponse.JSON403.Message
 			}
-		} else if secretEnvelopeResponse.StatusCode() == 404 {
+			doneEnvelope(fmt.Errorf("%s", msg))
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusNotFound:
+			msg := "not found"
 			if secretEnvelopeResponse.JSON404 != nil && secretEnvelopeResponse.JSON404.Message != nil {
-				fmt.Printf("failed: %s\n", *secretEnvelopeResponse.JSON404.Message)
-			} else {
-				fmt.Println("failed: not found")
+				msg = *secretEnvelopeResponse.JSON404.Message
 			}
-		} else if secretEnvelopeResponse.StatusCode() == 500 {
+			doneEnvelope(fmt.Errorf("%s", msg))
+
+		case secretEnvelopeResponse.StatusCode() == http.StatusInternalServerError:
+			msg := "server error"
 			if secretEnvelopeResponse.JSON500 != nil && secretEnvelopeResponse.JSON500.Message != nil {
 				logrus.Debugf("PigeonHole return message: %s", *secretEnvelopeResponse.JSON500.Message)
-				fmt.Printf("🌭 The PigeonHole API is misbehaving: %s\n", *secretEnvelopeResponse.JSON500.Message)
-			} else {
-				fmt.Println("🌭 The PigeonHole API is misbehaving")
+				msg = *secretEnvelopeResponse.JSON500.Message
 			}
+			doneEnvelope(fmt.Errorf("%s", msg))
+
+		default:
+			doneEnvelope(fmt.Errorf("unexpected status %d", secretEnvelopeResponse.StatusCode()))
 		}
 	},
 }

@@ -34,24 +34,27 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		SetLogger()
 		GlobalCtx, ContextCancel = context.WithTimeout(context.Background(), 60*time.Second)
-		defer ContextCancel()
 		PigeonHoleClient = *sdk.PigeonholeClient(&PigeonHoleConfig, Version)
 		if cmd.Annotations["skip-pre-run"] == "true" {
 			logrus.Debugln("skipping-pre-run for: ", cmd.CommandPath())
 			return
 		}
 
+		// Use a separate context for pre-run tasks with shorter timeout
+		preRunCtx, preRunCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer preRunCancel()
+
 		// Validate token locally and refresh if needed
-		err := auth.ValidateAndRefreshToken(GlobalCtx, &PigeonHoleConfig, fullConfigPath)
+		err := auth.ValidateAndRefreshToken(preRunCtx, &PigeonHoleConfig, fullConfigPath)
 		if err != nil {
 			logrus.Debugf("Token validation failed: %v", err)
 			fmt.Printf("🛡️ Authentication Error: %v\n", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 
 		// Sync local keys with remote API after successful auth
 		if viper.GetString("auth.accesstoken") != "" {
-			syncErr := auth.SyncKeysWithRemote(GlobalCtx, &PigeonHoleConfig, &PigeonHoleClient)
+			syncErr := auth.SyncKeysWithRemote(preRunCtx, &PigeonHoleConfig, &PigeonHoleClient)
 			if syncErr != nil {
 				logrus.Debugf("Key sync failed: %v", syncErr)
 				// Non-blocking - continue with command execution

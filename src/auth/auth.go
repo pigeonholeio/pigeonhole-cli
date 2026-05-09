@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/pigeonholeio/pigeonhole-cli/config"
@@ -11,7 +10,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func AuthenticateWithDeviceCode(ctx context.Context, clientId string, provider *sdk.OIDCProvider) (*oauth2.Token, error) {
+// DeviceCodePrompt is called once the device code is available, before polling begins.
+type DeviceCodePrompt func(verificationURI, userCode string)
+
+func AuthenticateWithDeviceCode(ctx context.Context, clientId string, provider *sdk.OIDCProvider, prompt DeviceCodePrompt) (*oauth2.Token, error) {
 
 	logrus.Debugf("Using following provider auth url: %s\n", *provider.AuthUrl)
 	logrus.Debugf("Using following provider token url: %s\n", *provider.TokenUrl)
@@ -36,7 +38,10 @@ func AuthenticateWithDeviceCode(ctx context.Context, clientId string, provider *
 		logrus.Debugln(err.Error())
 		return nil, err
 	}
-	fmt.Printf("Go to %s and enter code: %s\n", da.VerificationURI, da.UserCode)
+
+	if prompt != nil {
+		prompt(da.VerificationURI, da.UserCode)
+	}
 
 	tok, err := conf.DeviceAccessToken(ctx, da, oauth2.SetAuthURLParam("audience", *provider.Audience))
 	if err != nil {
