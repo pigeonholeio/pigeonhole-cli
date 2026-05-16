@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pigeonholeio/pigeonhole-cli/tui/styles"
@@ -32,7 +31,7 @@ func SecretPrompt(label string) (string, error) {
 	var buf []byte
 	tmp := make([]byte, 1)
 	for {
-		_, err := syscall.Read(fd, tmp)
+		_, err := os.Stdin.Read(tmp)
 		if err != nil {
 			break
 		}
