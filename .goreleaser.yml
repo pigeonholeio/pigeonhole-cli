@@ -64,8 +64,8 @@ brews:
       #
       # Defaults to the default repository branch.
       branch: main
-      git:
-        private_key: ~/.ssh/id_rsa
+      # Token-based tap push in CI (PAT with write to homebrew-pigeonhole).
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
 
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
