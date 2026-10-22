@@ -65,5 +65,5 @@ func openURL(url string) error {
 }
 
 func init() {
-	rootCmd.AddCommand(dashboardCmd)
+	// rootCmd.AddCommand(dashboardCmd) // legacy (old API) — superseded by nx commands
 }

@@ -176,7 +176,7 @@ func sendInvitations(recipients []string) {
 }
 
 func init() {
-	rootCmd.AddCommand(inviteCmd)
+	// rootCmd.AddCommand(inviteCmd) // legacy (old API) — superseded by nx commands
 
 	inviteCmd.Flags().StringP("recipient", "r", "", "Comma-separated list of email addresses to invite")
 }

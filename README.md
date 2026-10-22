@@ -15,14 +15,18 @@ PigeonHole CLI is the modern way to send secrets, files, or any text securely. E
 Head over to the [Quick Start Guide](https://pigeono.io/quick-start/) on how to install and send your first secret!
 
 
-### Common Commands
+### Common Commands (v1 — Cloudflare backend, api.pigeono.io)
 
-- `pigeonhole login` - Authenticate with your identity provider
-- `pigeonhole auth list-providers` - List available identity providers
-- `pigeonhole keys init` - Initialize GPG key pair
-- `pigeonhole secret send` - Send a secret securely
-- `pigeonhole secret list` - List received secrets
-- `pigeonhole secret receive` - Receive and decrypt a secret
+- `pigeonhole login --email you@example.com` - Create your device keypair and enrol
+- `pigeonhole send --to someone@example.com [file]` - Encrypt (OpenPGP) and send a secret (file or stdin)
+- `pigeonhole send --to a@x.com --onetime -` - Burn-after-read from stdin
+- `pigeonhole list` - List your available secrets
+- `pigeonhole receive --ref <reference>` - Download and decrypt (to stdout, or `-o file`)
+
+> **v1 note:** v1.0.0 is a ground-up rebuild on Cloudflare (Workers/R2/D1) with a
+> keypair identity and end-to-end OpenPGP encryption. Keys are generated locally and
+> never leave your device (losing your key = losing access, by design). Legacy
+> commands from 0.x have been retired pending reimplementation on the new backend.
 
 ## Configuration
 
