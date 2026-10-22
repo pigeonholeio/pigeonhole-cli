@@ -442,7 +442,7 @@ func init() {
 
 	KeysRegenerateCmd.PersistentFlags().BoolP("force", "f", false, "Skip confirmation prompts")
 
-	rootCmd.AddCommand(keysCmd)
+	// rootCmd.AddCommand(keysCmd) // legacy (old API) — superseded by nx commands
 
 	keysCmd.AddCommand(KeysListCmd)
 	keysCmd.AddCommand(KeysRegenerateCmd)

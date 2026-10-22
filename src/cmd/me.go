@@ -86,7 +86,7 @@ var MeShowCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(meCmd)
+	// rootCmd.AddCommand(meCmd) // legacy (old API) — superseded by nx commands
 	meCmd.AddCommand(MeShowCmd)
 	// meCmd.AddCommand(MeResetCmd)
 

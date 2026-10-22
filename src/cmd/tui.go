@@ -33,7 +33,7 @@ Note: You must authenticate via 'pigeonhole auth login' before using the TUI.`,
 }
 
 func init() {
-	rootCmd.AddCommand(tuiCmd)
+	// rootCmd.AddCommand(tuiCmd) // legacy (old API) — superseded by nx commands
 
 	// Optional flags for TUI
 	tuiCmd.Flags().BoolP("help", "h", false, "help for tui")

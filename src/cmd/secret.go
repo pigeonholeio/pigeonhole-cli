@@ -764,7 +764,7 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(secretsCmd)
+	// rootCmd.AddCommand(secretsCmd) // legacy (old API) — superseded by nx commands
 	secretsCmd.AddCommand(SecretsRetrieveCmd)
 	secretsCmd.AddCommand(SecretsDeleteCmd)
 	secretsCmd.AddCommand(SecretsDropCmd)

@@ -701,8 +701,8 @@ func init() {
 	authCmd.AddCommand(authClearKeychainCmd)
 	authCmd.AddCommand(authSwitchCmd)
 	authCmd.AddCommand(authListUsersCmd)
-	rootCmd.AddCommand(authCmd)
-	rootCmd.AddCommand(loginCmd)
+	// rootCmd.AddCommand(authCmd) // legacy (old API) — superseded by nx commands
+	// rootCmd.AddCommand(loginCmd) // superseded by nx keypair login (api.pigeono.io)
 
 	authLoginCmd.PersistentFlags().StringVar(&UseOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
 	loginCmd.PersistentFlags().StringVar(&UseOIDCProvider, "provider", "", "specify the identity provider you wish to authenticate with")
