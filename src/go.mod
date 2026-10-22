@@ -10,7 +10,6 @@ require (
 	github.com/ProtonMail/go-mime v0.0.0-20230322103455-7d82a3887f2f // indirect
 	github.com/ProtonMail/gopenpgp/v2 v2.9.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/charmbracelet/bubbles v0.17.0
 	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/cloudflare/circl v1.6.1 // indirect
@@ -42,9 +41,11 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.1
+	github.com/mattn/go-isatty v0.0.20
 	github.com/pigeonholeio/common v0.0.0-20251016181322-c49b9d34e052
+	github.com/zalando/go-keyring v0.2.6
+	golang.org/x/term v0.40.0
 )
 
 require (
@@ -66,7 +67,6 @@ require (
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/muesli/ansi v0.0.0-20211018074035-2e021307bc4b // indirect
@@ -75,10 +75,6 @@ require (
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
-	github.com/zalando/go-keyring v0.2.6 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/term v0.40.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
-
-replace github.com/pigeonholeio/common => ../../common
