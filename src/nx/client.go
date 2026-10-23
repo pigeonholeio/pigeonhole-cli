@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
+
+func urlEnc(s string) string { return url.QueryEscape(s) }
 
 // Base returns the API base URL (override with PIGEONHOLE_API).
 func Base() string {
@@ -68,6 +72,111 @@ func Enroll(email, pubKey, thumbprint, masterKey string) (string, error) {
 	if tok == "" {
 		return "", fmt.Errorf("no token returned")
 	}
+	return tok, nil
+}
+
+// --- OIDC (Authentik) device-code login ---
+
+type oidcProvider struct {
+	Issuer           string `json:"issuer"`
+	ClientID         string `json:"client_id"`
+	DeviceEndpoint   string `json:"device_authorization_endpoint"`
+	TokenEndpoint    string `json:"token_endpoint"`
+}
+
+// Providers fetches the server's advertised OIDC config.
+func Providers() (*oidcProvider, error) {
+	out, code, err := jsonReq("GET", "/auth/oidc/providers", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	if code != 200 {
+		return nil, fmt.Errorf("providers failed (%d)", code)
+	}
+	b, _ := json.Marshal(out["oidcProviders"].(map[string]any)["pigeonhole"])
+	var p oidcProvider
+	if err := json.Unmarshal(b, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func form(u string, vals map[string]string) (map[string]any, error) {
+	data := ""
+	for k, v := range vals {
+		if data != "" {
+			data += "&"
+		}
+		data += k + "=" + urlEnc(v)
+	}
+	resp, err := httpc.Post(u, "application/x-www-form-urlencoded", strings.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	var out map[string]any
+	_ = json.Unmarshal(raw, &out)
+	return out, nil
+}
+
+// DeviceStart begins the OAuth2 device-authorization grant.
+func DeviceStart(p *oidcProvider) (deviceCode, userCode, verifyURI, verifyComplete string, interval int, err error) {
+	out, e := form(p.DeviceEndpoint, map[string]string{"client_id": p.ClientID, "scope": "openid email profile"})
+	if e != nil {
+		return "", "", "", "", 0, e
+	}
+	if out["device_code"] == nil {
+		return "", "", "", "", 0, fmt.Errorf("device auth failed: %v", out["error"])
+	}
+	iv := 5
+	if f, ok := out["interval"].(float64); ok {
+		iv = int(f)
+	}
+	str := func(k string) string { s, _ := out[k].(string); return s }
+	return str("device_code"), str("user_code"), str("verification_uri"), str("verification_uri_complete"), iv, nil
+}
+
+// DevicePoll polls the token endpoint until the user approves; returns id_token.
+func DevicePoll(p *oidcProvider, deviceCode string, interval int) (string, error) {
+	for i := 0; i < 180; i++ {
+		time.Sleep(time.Duration(interval) * time.Second)
+		out, err := form(p.TokenEndpoint, map[string]string{
+			"grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+			"device_code": deviceCode, "client_id": p.ClientID,
+		})
+		if err != nil {
+			return "", err
+		}
+		if idt, ok := out["id_token"].(string); ok && idt != "" {
+			return idt, nil
+		}
+		switch out["error"] {
+		case "authorization_pending":
+			continue
+		case "slow_down":
+			interval += 5
+		case nil:
+			continue
+		default:
+			return "", fmt.Errorf("device token error: %v", out["error"])
+		}
+	}
+	return "", fmt.Errorf("timed out waiting for approval")
+}
+
+// OidcEnroll exchanges a verified Authentik id_token for a PigeonHole token.
+func OidcEnroll(idToken, pubKey, thumbprint, masterKey string) (string, error) {
+	out, code, err := jsonReq("POST", "/auth/oidc/handler/pigeonhole", "", map[string]any{
+		"id_token": idToken, "public_key": pubKey, "thumbprint": thumbprint, "master_key": masterKey,
+	})
+	if err != nil {
+		return "", err
+	}
+	if code != 201 && code != 200 {
+		return "", fmt.Errorf("oidc enroll failed (%d): %v", code, out["message"])
+	}
+	tok, _ := out["accessToken"].(string)
 	return tok, nil
 }
 
