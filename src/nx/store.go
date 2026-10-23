@@ -52,6 +52,15 @@ func LoadIdentity() (*Identity, error) {
 	return &id, nil
 }
 
+// CurrentEmail returns the signed-in user's email, or "" if not logged in.
+func CurrentEmail() string {
+	id, err := LoadIdentity()
+	if err != nil {
+		return ""
+	}
+	return id.Email
+}
+
 func SaveIdentity(id *Identity) error {
 	p, err := identityPath()
 	if err != nil {

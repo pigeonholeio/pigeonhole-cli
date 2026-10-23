@@ -10,7 +10,9 @@ import (
 	"github.com/pigeonholeio/pigeonhole-cli/auth"
 	"github.com/pigeonholeio/pigeonhole-cli/config"
 	"github.com/pigeonholeio/pigeonhole-cli/credentialstore"
+	"github.com/pigeonholeio/pigeonhole-cli/nx"
 	"github.com/pigeonholeio/pigeonhole-cli/sdk"
+	"github.com/pigeonholeio/pigeonhole-cli/telemetry"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -77,11 +79,38 @@ ciphertext. Get started:
 }
 
 func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
+	start := time.Now()
+	for _, a := range os.Args[1:] { // honour --no-telemetry before anything records
+		if a == "--no-telemetry" {
+			telemetry.Disable()
+		}
+	}
+	shutdown := telemetry.Init(Version)
+	defer shutdown()
 
+	// One root span per invocation: command, duration, outcome, errors, and
+	// (when signed in) the user's email. Child spans (encrypt/upload/…) link to it.
+	span := telemetry.StartRoot("cli")
+
+	cmd, err := rootCmd.ExecuteC()
+
+	name := "unknown"
+	if cmd != nil {
+		name = cmd.CommandPath()
+	}
+	span.SetAttr("cli.command", name)
+	span.SetAttr("cli.duration_ms", float64(time.Since(start).Microseconds())/1000.0)
+	if email := nx.CurrentEmail(); email != "" {
+		span.SetAttr("user.email", email)
+	}
+	span.Fail(err) // no-op if err == nil
+	span.End()
+
+	cobra.CheckErr(err)
 }
 
 var verbose bool
+var noTelemetry bool
 var cfgFile string
 var v *viper.Viper
 
@@ -104,6 +133,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.pigeonhole/config.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Display more verbose output in console output. (default: false)")
+	rootCmd.PersistentFlags().BoolVar(&noTelemetry, "no-telemetry", false, "disable anonymous usage/error telemetry")
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 	logrus.Debugf("Called InitConfig")
 	InitConfig()
