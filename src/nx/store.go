@@ -43,7 +43,7 @@ func LoadIdentity() (*Identity, error) {
 	}
 	b, err := os.ReadFile(p)
 	if err != nil {
-		return nil, fmt.Errorf("not logged in (run `pigeonhole login`): %w", err)
+		return nil, fmt.Errorf("you're not signed in — run: pigeonhole login")
 	}
 	var id Identity
 	if err := json.Unmarshal(b, &id); err != nil {

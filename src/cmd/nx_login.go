@@ -14,18 +14,20 @@ var (
 )
 
 var nxLoginCmd = &cobra.Command{
-	Use:         "login",
-	Short:       "Authenticate with PigeonHole",
-	Long:        "Authenticate with PigeonHole.\n\n  --sso          Single sign-on via your identity provider (Authentik) [recommended]\n  --email <addr> Dev keypair identity (unverified email)",
+	Use:   "login",
+	Short: "Sign in to PigeonHole",
+	Long: `Sign in to PigeonHole.
+
+By default this uses single sign-on (SSO) via your identity provider.
+A device keypair is generated locally and never leaves this machine.`,
+	Example: "  pigeonhole login            # SSO (recommended)\n  pigeonhole login --email you@example.com   # dev keypair identity",
 	Annotations: map[string]string{"skip-pre-run": "true"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if nxLoginSSO {
-			return ssoLogin()
+		// Default (no flags) = SSO — the intuitive path for new users.
+		if nxLoginEmail != "" {
+			return keypairLogin(nxLoginEmail)
 		}
-		if nxLoginEmail == "" {
-			return fmt.Errorf("provide --sso (recommended) or --email <addr>")
-		}
-		return keypairLogin(nxLoginEmail)
+		return ssoLogin()
 	},
 }
 

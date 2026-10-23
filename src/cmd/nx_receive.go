@@ -19,6 +19,7 @@ var nxReceiveCmd = &cobra.Command{
 	Use:         "receive",
 	Aliases:     []string{"recv", "get"},
 	Short:       "Download and decrypt a secret (to stdout or a file)",
+	Example:     "  pigeonhole receive --ref abc123\n  pigeonhole receive --ref abc123 -o ./secret.env\n  pigeonhole list   # to see available references",
 	Annotations: map[string]string{"skip-pre-run": "true"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := nx.LoadIdentity()

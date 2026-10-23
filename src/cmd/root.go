@@ -28,9 +28,18 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:           "pigeonhole",
-	Short:         "Sending secrets securely.",
+	Short:         "Send secrets, files and text securely (end-to-end encrypted).",
 	SilenceErrors: true,
-	Long:          `This command will display the size of a directory with several different options.`,
+	SilenceUsage:  true,
+	Long: `PigeonHole — send secrets, files and text securely.
+
+Everything is end-to-end encrypted on your device; the server only ever stores
+ciphertext. Get started:
+
+  pigeonhole login                      sign in (SSO via your identity provider)
+  pigeonhole send --to you@example.com  encrypt & send a file or piped input
+  pigeonhole list                       see secrets waiting for you
+  pigeonhole receive --ref <reference>  download & decrypt`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		SetLogger()
 		GlobalCtx, ContextCancel = context.WithTimeout(context.Background(), 60*time.Second)
