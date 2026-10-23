@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pigeonholeio/common/utils"
@@ -15,6 +16,7 @@ import (
 	"github.com/pigeonholeio/pigeonhole-cli/telemetry"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/Masterminds/semver/v3"
@@ -86,7 +88,6 @@ func Execute() {
 		}
 	}
 	shutdown := telemetry.Init(Version)
-	defer shutdown()
 
 	// One root span per invocation: command, duration, outcome, errors, and
 	// (when signed in) the user's email. Child spans (encrypt/upload/…) link to it.
@@ -97,6 +98,14 @@ func Execute() {
 	name := "unknown"
 	if cmd != nil {
 		name = cmd.CommandPath()
+		// name the trace after the command so "commands people use" is directly
+		// visible/aggregatable in Tempo; capture which flags were set (names only).
+		span.SetName(name)
+		var flags []string
+		cmd.Flags().Visit(func(f *pflag.Flag) { flags = append(flags, f.Name) })
+		if len(flags) > 0 {
+			span.SetAttr("cli.flags", strings.Join(flags, ","))
+		}
 	}
 	span.SetAttr("cli.command", name)
 	span.SetAttr("cli.duration_ms", float64(time.Since(start).Microseconds())/1000.0)
@@ -106,7 +115,8 @@ func Execute() {
 	span.Fail(err) // no-op if err == nil
 	span.End()
 
-	cobra.CheckErr(err)
+	shutdown() // flush BEFORE cobra.CheckErr — it os.Exit(1)s on error, which
+	cobra.CheckErr(err) // would otherwise skip a deferred flush and lose error telemetry.
 }
 
 var verbose bool
