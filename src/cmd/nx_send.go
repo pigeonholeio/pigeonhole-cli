@@ -9,6 +9,7 @@ import (
 
 	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/nx"
+	"github.com/pigeonholeio/pigeonhole-cli/telemetry"
 	"github.com/spf13/cobra"
 )
 
@@ -58,15 +59,24 @@ var nxSendCmd = &cobra.Command{
 
 		// OpenPGP-encrypt once, PKESK per recipient key (client-side; zero-knowledge).
 		var ct bytes.Buffer
-		if err := utils.EncryptStream(src, &ct, pubKeys); err != nil {
-			return fmt.Errorf("encryption failed: %w", err)
+		encSpan := telemetry.Start("encrypt", telemetry.Root())
+		encErr := utils.EncryptStream(src, &ct, pubKeys)
+		encSpan.Fail(encErr)
+		encSpan.End()
+		if encErr != nil {
+			return fmt.Errorf("encryption failed: %w", encErr)
 		}
 
+		upSpan := telemetry.Start("upload", telemetry.Root())
+		upSpan.SetAttr("size_bytes", ct.Len())
+		upSpan.SetAttr("recipients", len(nxSendTo))
 		secretID, ref, bodyURL, err := nx.CreateSecret(id.Token, nxSendTo, int64(ct.Len()), nxSendOnetime)
-		if err != nil {
-			return err
+		if err == nil {
+			err = nx.PutBody(bodyURL, ct.Bytes())
 		}
-		if err := nx.PutBody(bodyURL, ct.Bytes()); err != nil {
+		upSpan.Fail(err)
+		upSpan.End()
+		if err != nil {
 			return err
 		}
 		_ = secretID
