@@ -94,6 +94,14 @@ func (s *Span) SetAttr(k string, v any) {
 	s.attrs[k] = v
 }
 
+// SetName renames the span (e.g. to the resolved command, for easy querying).
+func (s *Span) SetName(name string) {
+	if s == nil {
+		return
+	}
+	s.name = name
+}
+
 func (s *Span) Fail(err error) {
 	if s == nil || err == nil {
 		return
