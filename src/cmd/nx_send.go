@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/pigeonholeio/common/utils"
 	"github.com/pigeonholeio/pigeonhole-cli/nx"
@@ -17,8 +18,11 @@ var (
 )
 
 var nxSendCmd = &cobra.Command{
-	Use:         "send [file]",
-	Short:       "Encrypt and send a secret (file or stdin) to recipients",
+	Use:   "send [file]",
+	Short: "Encrypt and send a secret (file or stdin) to recipients",
+	Example: "  pigeonhole send --to you@example.com ./secrets.env\n" +
+		"  echo \"my api key\" | pigeonhole send --to a@x.com --onetime\n" +
+		"  pigeonhole send --to a@x.com --to b@y.com ./file",
 	Annotations: map[string]string{"skip-pre-run": "true"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := nx.LoadIdentity()
@@ -65,7 +69,10 @@ var nxSendCmd = &cobra.Command{
 		if err := nx.PutBody(bodyURL, ct.Bytes()); err != nil {
 			return err
 		}
-		fmt.Printf("🕊️  Sent! reference: %s\n   id: %s  size: %d bytes  recipients: %v\n", ref, secretID, ct.Len(), nxSendTo)
+		_ = secretID
+		fmt.Printf("🕊️  Sent to %s  (%d bytes, encrypted)\n", strings.Join(nxSendTo, ", "), ct.Len())
+		fmt.Printf("   Reference: %s\n", ref)
+		fmt.Printf("   Recipient retrieves it with:  pigeonhole receive --ref %s\n", ref)
 		return nil
 	},
 }
